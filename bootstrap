@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run the marketplace bootstrap script from Bash, Fish, or another shell.
+set -eu
+
+REPOSITORY_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$REPOSITORY_ROOT/scripts/bootstrap.sh" "$@"

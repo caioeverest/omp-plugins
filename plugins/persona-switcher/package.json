@@ -1,0 +1,9 @@
+{
+  "name": "persona-switcher",
+  "version": "0.4.0",
+  "description": "Manage OMP personality files from a saved persona library; generate new persona matrices through the persona_create tool.",
+  "type": "module",
+  "omp": {
+    "extensions": ["./index.ts"]
+  }
+}

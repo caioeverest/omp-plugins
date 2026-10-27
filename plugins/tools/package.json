@@ -1,0 +1,9 @@
+{
+  "name": "omp-tools",
+  "version": "0.2.0",
+  "description": "General-purpose Beads, GitHub, PostgreSQL, and model-aware usage tools for OMP.",
+  "type": "module",
+  "omp": {
+    "extensions": ["./index.ts"]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "everest",
+  "owner": {
+    "name": "everest"
+  },
+  "metadata": {
+    "description": "Local OMP plugin catalog for bundled plugins and skills",
+    "version": "0.1.5",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "frontend-design",
+      "description": "Frontend design skill for UI/UX implementation",
+      "version": "0.0.0",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/anthropics/claude-plugins-official.git",
+        "path": "plugins/frontend-design",
+        "ref": "main",
+        "sha": "ed404106fcd80ba98ecb7c851e531dcb626d13b7"
+      }
+    },
+    {
+      "name": "tools",
+      "description": "General-purpose Beads, GitHub, PostgreSQL, and model-aware usage tools for OMP.",
+      "version": "0.2.0",
+      "source": "./tools"
+    },
+    {
+      "name": "persona-switcher",
+      "description": "Manage OMP personality files from a saved persona library; generate new persona matrices through the persona_create tool.",
+      "version": "0.4.0",
+      "source": "./persona-switcher"
+    },
+    {
+      "name": "telegram",
+      "description": "Single-owner Telegram bridge and chat tools for OMP.",
+      "version": "0.3.1",
+      "source": "./telegram"
+    }
+  ]
+}

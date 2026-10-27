@@ -1,0 +1,9 @@
+{
+  "name": "omp-telegram",
+  "version": "0.3.1",
+  "description": "Single-owner Telegram bridge and chat tools for OMP.",
+  "type": "module",
+  "omp": {
+    "extensions": ["./index.ts"]
+  }
+}
