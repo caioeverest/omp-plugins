@@ -5,7 +5,7 @@ description: Writing documents for agents — skills, AGENTS.md/CLAUDE.md, and a
 
 Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) — creating a skill, frontmatter, invocation choice, and router skills. Full definitions of the **bold terms** used here, each with its synonyms and failure modes, live in [`GLOSSARY.md`](GLOSSARY.md).
+When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) — creating a skill, frontmatter, invocation choice, and router skills. Two branches have their own files: [`BULLETPROOFING.md`](BULLETPROOFING.md) when the failure is a rule under pressure, and [`TESTING-SKILLS.md`](TESTING-SKILLS.md) when you want evidence the document works. Full definitions of the **bold terms** used here, each with its synonyms and failure modes, live in [`GLOSSARY.md`](GLOSSARY.md).
 
 ## Context pointers
 
@@ -72,6 +72,19 @@ Hunt for opportunities to refactor with leading words. A triad spelled out at th
 You win twice: fewer tokens, and a sharper hook for the agent to hang its thinking on. Assume every document is carrying restatements that leading words retire — go find them.
 
 **Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive** — state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively; even then, pair it with the positive target so attention lands on what to do.
+
+## Match the form to the failure
+
+Choosing the form is the decision beside negation: reach for the shape that fits the observed failure, not the one you like writing.
+
+- **The behaviour happens but gets skipped under pressure** → a discipline rule, and the only case that earns a prohibition: state the rule, then name the workarounds it invites ("delete it — don't keep it as a reference, don't adapt it"), with the rationalizations drawn from what you actually observed. See [`BULLETPROOFING.md`](BULLETPROOFING.md).
+- **The output arrives in the wrong shape** → a recipe or contract: state the target structure, show one excellent example.
+- **An element keeps going missing** → a REQUIRED slot in the template it fills, so omission is visible.
+- **The behaviour must be conditional** → a conditional keyed to an observable predicate, not a judgement call.
+- **The steps are fragile** → pin them exactly; **the task is judgement-heavy** → give latitude. Match specificity to the cost of the step going wrong.
+- **The failure never happens without the guidance** → write nothing. That is the no-op test above, applied before drafting rather than after.
+
+Two corollaries worth the lines: **no nuance clauses** — "don't X unless it matters" reopens the negotiation the rule was closing, so a real exception becomes its own conditional on an observable predicate. And **an exemption clause does not scope** — "this limit doesn't apply to code blocks" still suppresses code blocks; restructure so the rule cannot reach what it must not touch.
 
 ## Pruning
 

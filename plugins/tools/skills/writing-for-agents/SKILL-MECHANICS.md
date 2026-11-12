@@ -8,7 +8,7 @@ The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when
 
 **Process.**
 
-1. **Gather requirements** — the task and domain the skill covers, the use cases it must handle, whether it needs executable scripts or only instructions, and any reference material to fold in.
+1. **Gather requirements** — the task and domain the skill covers, the use cases it must handle, whether it needs executable scripts or only instructions, and any reference material to fold in. Include the **baseline**: what an agent does today without the skill, observed rather than assumed (see [`TESTING-SKILLS.md`](TESTING-SKILLS.md)) — that, not your intention, is what the skill has to change.
 2. **Draft** — `SKILL.md` with the frontmatter and shape below; push reference into sibling files as the body grows (see _When to split_ in `SKILL.md`).
 3. **Review with the user** — does it cover their cases? anything missing or unclear? should any section be more or less detailed?
 
@@ -37,7 +37,13 @@ description: What the skill does. Use when [specific triggers].
 
 **Description.** The description is the agent's only signal for choosing this skill, so it is the skill's context pointer: front-load the leading word, third person, first sentence what it does then "Use when [specific triggers]" (wording rules in `SKILL.md`; branch collapse included). A **user-invoked** skill keeps a human-facing one-line summary instead — see _Invocation_ below.
 
+Two traps. **A description that summarises the workflow gets executed instead of the skill**: an agent reading "two reviews between tasks" does one review and never opens the body, so say what the skill is for and when to reach for it, never the steps. And **keywords belong to branches, not synonyms**: name the symptoms, error strings, and verbs a user would actually say, one per genuinely distinct branch — the branch-collapse rule still holds, so this is not licence to pile up near-synonyms.
+
 **Ship scripts** when the operation is deterministic (validation, formatting), the same code would be regenerated each run, or errors need explicit handling: a script is cheaper and more reliable than generated code.
+
+Shape a script as **validate → act → report**: check its inputs and preconditions, do the thing, print the result the skill's completion criterion needs. Justify every constant in it — a magic percentage is a calibration knob someone will need later — and say whether the skill runs the script or reads it. A script whose output nobody checks is decoration.
+
+**Name** the skill verb-first or as a gerund (`diagnosing-bugs`, `verifying-your-work`), one concept per name, and unique across every discovered skill.
 
 **Review checklist.**
 
@@ -47,6 +53,9 @@ description: What the skill does. Use when [specific triggers].
 - [ ] No time-sensitive statements
 - [ ] One term per concept; concrete examples included
 - [ ] Links resolve, and point one level deep
+- [ ] Description states what the skill is for and when to reach for it — never the workflow's steps
+- [ ] One excellent runnable example, not several, and no multi-language dilution
+- [ ] Rules carry the load; no war stories, session logs, or metrics standing in for a rule
 
 ## Invocation
 
