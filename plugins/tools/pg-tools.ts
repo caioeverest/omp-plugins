@@ -42,8 +42,8 @@ export function registerPostgresTools(pi: ExtensionAPI): void {
 		name: "pg_query",
 		label: "Postgres: Query (read-only)",
 		description:
-			"Run a read-only SQL query (SELECT, TABLE, WITH) against the Postgres server configured by .omp/agent/pg.json or PG* env vars. " +
-			"Write statements are rejected — use pg_exec. " +
+			"Run a read-only SQL query (one SELECT or TABLE) against the Postgres server configured by .omp/agent/pg.json or PG* env vars. " +
+			"Write statements, CTEs, multiple statements, and SELECT INTO are rejected — use pg_exec. " +
 			"Optional `database` overrides the default connection database.",
 		parameters: {
 			type: "object",

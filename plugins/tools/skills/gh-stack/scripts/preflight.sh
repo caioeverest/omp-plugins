@@ -27,7 +27,7 @@ else
   ok "$(gh --version | head -n1)"
 fi
 
-if ! gh extension list 2>/dev/null | awk '$1 == "gh-stack" { found=1 } END { exit !found }'; then
+if ! gh extension list 2>/dev/null | awk '$1 == "gh" && $2 == "stack" { found=1 } END { exit !found }'; then
   fail '`gh-stack` extension missing. Install: gh extension install github/gh-stack'
 elif ! gh stack --help >/dev/null 2>&1; then
   fail '`gh stack` unavailable or unhealthy.'

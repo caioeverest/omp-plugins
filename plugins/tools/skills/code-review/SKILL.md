@@ -1,87 +1,87 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review changed code with evidence. Use for a branch/PR/WIP review, \"review since X\", \"review my PR\", or \"is this PR ready\". Fixed-point mode compares a diff against Standards and Spec; PR mode adds Quality gates and Security/Correctness across four independent axes. Reports locally; posts or approves only when asked."
 ---
 
-Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
+Review the diff between `HEAD` and a fixed point, or the pull request for the current branch. Pick one mode:
 
-- **Standards** — does the code conform to this repo's documented coding standards?
-- **Spec** — does the code faithfully implement the originating issue / spec?
+- **Fixed point** — the user names a commit, branch, tag, or ref (`main`, `HEAD~5`), or asks to review work-in-progress since one. Axes: **Standards**, **Spec**.
+- **PR** — a PR exists for the current branch, or the user asks to "review my PR", "adversarial PR review", or "is this PR ready". Axes: **Intent**, **Standards**, **Quality**, **Security & Correctness**.
 
-Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
-
-The issue tracker should have been provided to you — run `/setup-repo` if `docs/agents/issue-tracker.md` is missing.
+PR mode is adversarial: assume the PR has problems and try to find them. Both modes are read-only reviews — never commit, push, post a comment, approve, or request changes unless the user explicitly asks.
 
 ## Process
 
-### 1. Pin the fixed point
+### 1. Pin the target
 
-Whatever the user said is the fixed point — a commit SHA, branch name, tag, `main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
+**Fixed point:** use whatever ref the user supplied. If they named none, ask. Verify it resolves and the diff is non-empty before spawning anything:
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+```bash
+git rev-parse <fixed-point>
+git diff <fixed-point>...HEAD       # three-dot: compare against merge-base
+git log <fixed-point>..HEAD --oneline
+```
 
-Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here — not inside two parallel sub-agents.
+**PR:** call `look_for_prs` (no arguments) to find the current branch's PR, then `get_pr_details` with `{ "pr": "<number>" }`. That returns identity, checks, and review comments. Capture the PR number, title, body, base ref, and URL. Get the diff and commits with `git fetch origin <base>`, `git diff origin/<base>...HEAD`, and `git log origin/<base>..HEAD --oneline`; for a fork or a branch not checked out, use `gh pr diff <number>` and `gh pr view <number> --json commits --jq '.commits[] | "\(.oid[0:7]) \(.messageHeadline)"'`. If no PR exists, stop, tell the user, and offer fixed-point mode instead.
 
-### 2. Identify the spec source
+### 2. Find the spec or intent
 
-Look for the originating spec, in this order:
+Look in this order: PR body; issue references in the PR body or commits (`Closes #123`, GitLab `!67`) fetched via the issue workflow in `docs/agents/issue-tracker.md` when present; a path the user supplied; a matching file under `docs/`, `specs/`, or `.scratch/`. If nothing exists, ask. If the user says there is none, the axis reports "no spec available" — in PR mode, review against the intent implied by the title, branch name, and commits.
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
-2. A path the user passed as an argument.
-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
+### 3. Find the standards sources
 
-### 3. Identify the standards sources
+List anything documenting how code should be written: `CONTRIBUTING.md`, `CODING_STANDARDS.md`, `AGENTS.md`, `CLAUDE.md`, `CODEX.md`, `docs/standards*`. Skip anything tooling already enforces. A documented repo standard overrides the smell baseline below.
 
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
+The Standards axis always also carries this **smell baseline** (Fowler, _Refactoring_ ch. 3). Each item is a labelled heuristic ("possible Feature Envy"), never a hard violation:
 
-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+- **Mysterious Name** — name hides purpose. → rename; if no honest name fits, the design is murky.
+- **Duplicated Code** — same logic shape in several hunks/files. → extract the shared shape.
+- **Feature Envy** — method uses another object's data more than its own. → move it onto that data.
+- **Data Clumps** — same fields or params keep travelling together. → bundle them into one type.
+- **Primitive Obsession** — primitive/string standing in for a domain concept. → give it a small type.
+- **Repeated Switches** — same switch/if-cascade on the same type recurs. → polymorphism or one shared map.
+- **Shotgun Surgery** — one logical change scatters edits across many files. → gather what changes together.
+- **Divergent Change** — one module is edited for unrelated reasons. → split by reason to change.
+- **Speculative Generality** — abstraction, params, or hooks the spec never needed. → delete and inline.
+- **Message Chains** — long `a.b().c().d()` navigation. → hide the walk behind one method.
+- **Middle Man** — mostly delegates onward. → remove it and call the real target.
+- **Refused Bequest** — subclass ignores most of what it inherits. → use composition.
 
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
+### 4. Spawn the axes in parallel
 
-Each smell reads *what it is* → *how to fix*; match it against the diff:
+Run each selected axis as an independent sub-agent in one parallel batch. Give every sub-agent the same preamble: repo, branch, target/diff command, commit list, and these rules — adversarial stance, evidence for every finding (file + line/hunk and concrete impact), severity `blocker` / `major` / `minor`, no praise or padding, under 500 words. If parallel agents are unavailable, run the axes in separate passes and say so.
 
-- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
-- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
-- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
-- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
-- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
-- **Repeated Switches** — the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
-- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
-- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
-- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
-- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
-- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
+**Standards brief** — include the standards-source paths and the smell baseline above, pasted in full; the sub-agent cannot read this file. Report every diff violation of a documented standard (cite file + rule), any baseline smell (name it, quote the hunk), and divergence from surrounding-code idioms where no written rule exists. Baseline smells are always judgement calls.
 
-### 4. Spawn both sub-agents in parallel
+**Spec (fixed) / Intent (PR) brief** — include the spec or PR body and linked issues. Report requirements missing or partial, scope creep nobody asked for, requirements implemented with wrong semantics/edge cases/defaults, and contradictions between the description and the diff. Quote the source line for each finding.
 
-**Standards sub-agent prompt** — include:
+**Quality brief (PR only)** — the four gates are **Testing**, **Linting**, **Formatting**, **Generation**. Discover how this repo performs each one from Makefile targets, CI workflows, package scripts, and README/CONTRIBUTING; run only local, non-destructive commands. Never run a command that deploys, mutates shared or production state, or needs production credentials; report that gate as not run and why. Formatting and Generation mutate files: run them, record the diff, then restore the tree — the review must leave it unchanged. A gate with no mechanism in the repo is itself a finding ("gate absent"). Report each failing gate with trimmed error output, implicated changed files, and whether it already fails on the base branch (check the base in a temporary worktree, then remove it; never stash or discard the user's changes). Pre-existing = `minor`, new = `blocker`. Then judge the gates themselves: do the tests cover the defect classes this diff introduces (concurrency, auth, error paths)? A gate that passes but could not catch a real defect here is a `major` finding against the gate.
 
-- The full diff command and commit list.
-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-
-**Spec sub-agent prompt** — include:
-
-- The diff command and commit list.
-- The path or fetched contents of the spec.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-
-If the spec is missing, skip the Spec sub-agent and note this in the final report.
+**Security & Correctness brief (PR only)** — report defects with a concrete failure path, not a bare "X can be nil". Cover correctness (nil derefs, races, swallowed errors, off-by-one, wrong error semantics, leaks/unclosed resources, context misuse), security (injection, hardcoded or logged secrets, unvalidated input crossing trust boundaries, authn/authz gaps, unsafe deserialization, dependency-manifest risk), and test gaps on risky paths. Redact secrets as `<REDACTED>`.
 
 ### 5. Aggregate
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings — the two axes are deliberately separate (see _Why two axes_).
+Present each axis under its own heading — `## Standards`, `## Spec` (or `## Intent`, `## Quality`, `## Security & Correctness`) — verbatim or lightly cleaned. Do not merge or rerank across axes.
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes — that's the reranking the separation exists to prevent.
+- **Fixed point:** close with total findings per axis and the worst issue within each axis. Pick no single winner across axes.
+- **PR:** close with a **verdict** — `APPROVE`, `APPROVE with comments`, or `REQUEST CHANGES`; any blocker means `REQUEST CHANGES`. Always name the top residual risk in one line, even for `APPROVE`, and present the verdict as a recommendation: the user merges. Add a table of axis | blockers | majors | minors | worst issue.
 
-## Why two axes
+Treat red CI checks from `get_pr_details` as evidence; the Quality axis still runs the gates locally.
 
-A change can pass one axis and fail the other:
+### 6. Deliver
 
-- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
+Default to the conversation. Before any PR-facing action, ask which output the user wants:
 
-Reporting them separately stops one axis from masking the other.
+1. **Local markdown** — write `./pr-review-<branch>-<date>.md` and give the path.
+2. **PR comment** — only when explicitly requested: `gh pr comment <n> --body-file <file>`. Never use `gh pr review`; never record an approval or rejection in the PR's review state.
+3. **Inline only**.
+
+Finish with what was reviewed: target commit range, axes run, and checks executed.
+
+Done when every selected axis has a report, every finding cites evidence and a severity, and the user has chosen where the review goes.
+
+## Why the axes stay separate
+
+A change can pass one axis and fail another: code that follows every standard but implements the wrong thing (Standards pass, Spec/Intent fail), or code that does exactly what was asked but breaks conventions (Spec/Intent pass, Standards fail). A PR can pass three axes and still deserve rejection. Separate reports stop one axis from masking another.
+
+Adversarial does not mean hostile: findings are factual, evidenced, and actionable.

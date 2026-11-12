@@ -7,12 +7,11 @@ import { runCli } from "./cli.ts";
 import { toolText } from "./tool-result.ts";
 
 const TODO_STATUS = ["open", "in_progress", "blocked", "deferred", "closed"] as const;
-const TODO_TYPE = ["bug", "task", "feature", "epic", "chore"] as const;
 
 /** Run a bd CLI command; map common failures to actionable messages. */
 async function runBd(pi: ExtensionAPI, args: string[]) {
 	return runCli(pi, "bd", args, {
-		notFound: "bd CLI not found — install with `brew install beads`.",
+		notFound: "bd CLI not found — provision it with mise (`mise install`) or check PATH.",
 		mappings: [
 			{ pattern: /database not found|no beads database|not initialized/i, message: "beads is not initialized in this repo — run `bd init` (or the setup-repo skill)." },
 		],

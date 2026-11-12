@@ -82,8 +82,8 @@ function usage(): string {
 }
 
 async function showText(ctx: ExtensionContext, title: string, text: string, active?: string): Promise<void> {
-	if (!ctx.hasUI) {
-		console.log(text);
+	if (ctx.mode !== "tui") {
+		await notify(ctx, text);
 		return;
 	}
 	await ctx.ui.custom<void>(async (_tui, theme, keybindings, done) => {
@@ -197,8 +197,15 @@ export default function personaSwitcher(pi: ExtensionAPI): void {
 					case "generate": {
 						const brief = args.slice(command.length).trim();
 						if (!brief) throw new Error("Describe the persona: /persona generate <brief>");
+						// Idle starts the turn now; mid-stream queues behind the run instead
+						// of steering it. Attribution marks the text as extension-authored.
+						const options = {
+							attribution: "agent",
+							...(ctx.isIdle() ? {} : { deliverAs: "followUp" as const }),
+						};
 						pi.sendUserMessage(
 							`Create a new OMP persona. Follow the persona-generator skill for scope, research, and matrix format, then save it with the persona_create tool. Brief: ${brief}`,
+							options,
 						);
 						await notify(ctx, "Persona generation queued. The agent will research, draft, and save it; activate later with /persona use <slug>.");
 						return;
@@ -206,7 +213,7 @@ export default function personaSwitcher(pi: ExtensionAPI): void {
 					case "off": {
 						const active = activePersonaName(agentDir);
 						if (!deactivatePersona(agentDir)) throw new Error("No persona-switcher persona is active.");
-						await notify(ctx, `Deactivated ${active}.`);
+						await notify(ctx, active === undefined ? "Restored PERSONALITY.md from a leftover backup." : `Deactivated ${active}.`);
 						return;
 					}
 					case "show":

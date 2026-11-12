@@ -1,6 +1,6 @@
 ---
 name: pg-indexes
-description: PostgreSQL index design — btrees, covering indexes (INCLUDE), expression indexes, partial indexes, GIN/GiST/SP-GiST/BRIN, concurrent index builds, pg_stat_usage monitoring, EXPLAIN-driven index choices. Use when designing indexes, reviewing schema, diagnosing full table scans, or choosing index columns.
+description: PostgreSQL index design — btrees, covering indexes (INCLUDE), expression and partial indexes, GIN/GiST/SP-GiST/BRIN, concurrent builds, and `pg_stat_user_indexes` usage/bloat checks. Use when designing indexes, reviewing schema, diagnosing full table scans, or choosing index columns. Not for reading plan node shapes (pg-queries) or lock contention (pg-locking).
 ---
 
 # PG Indexes
@@ -10,8 +10,8 @@ Choosing, building, and maintaining PostgreSQL indexes.
 ## Tool usage
 
 - `pg_table_info` — column list + `pg_indexes` output.
-- `pg_explain` — verify the planner picks the index you expect.
-- `pg_exec` — `CREATE INDEX`, `CREATE INDEX CONCURRENTLY`, `DROP INDEX`, `ANALYZE`.
+- `pg_explain` — verify the planner picks the index you expect (plan reading: `skill://pg-queries`).
+- `pg_exec` — `CREATE INDEX`, `CREATE INDEX CONCURRENTLY`, `DROP INDEX`, `ANALYZE` (each call runs with write approval).
 
 ## Index types
 
@@ -138,7 +138,7 @@ SELECT schemaname, relname, indexrelname, idx_scan
 FROM pg_stat_user_indexes
 WHERE idx_scan < 10;
 
--- Bloat (pg_stat_usage)
+-- Bloat (dead tuples)
 SELECT relname, n_dead_tup FROM pg_stat_user_tables ORDER BY n_dead_tup DESC;
 
 -- Reindex a bloated index without downtime
@@ -153,7 +153,7 @@ HAVING count(*) > 1;
 
 ## EXPLAIN-driven checklist
 
-1. `pg_explain` on the query.
+1. `pg_explain` on the query (node shapes and cost reading: `skill://pg-queries`).
 2. `Seq Scan` on big table → check `pg_table_info` for a candidate column + create it.
 3. `Index Scan` but slow → check the extra `Filter:` line. Those columns belong in INCLUDE.
 4. `Bitmap Heap Scan` with `Recheck` → non-heap-resident index. Acceptable; `Index Only Scan` is better.

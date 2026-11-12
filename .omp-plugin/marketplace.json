@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Local OMP plugin catalog for bundled plugins and skills",
-    "version": "0.1.5",
+    "version": "0.2.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -25,20 +25,14 @@
     {
       "name": "tools",
       "description": "General-purpose Beads, GitHub, PostgreSQL, and model-aware usage tools for OMP.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "source": "./tools"
     },
     {
       "name": "persona-switcher",
       "description": "Manage OMP personality files from a saved persona library; generate new persona matrices through the persona_create tool.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "source": "./persona-switcher"
-    },
-    {
-      "name": "telegram",
-      "description": "Single-owner Telegram bridge and chat tools for OMP.",
-      "version": "0.3.1",
-      "source": "./telegram"
     }
   ]
 }

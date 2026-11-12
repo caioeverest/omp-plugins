@@ -1,6 +1,6 @@
 # OMP marketplace
 
-`everest` is a local OMP marketplace containing first-party plugins together with bundled skills adapted from third-party projects — see [`ATTRIBUTION.md`](ATTRIBUTION.md). Its catalog contains the pinned Anthropic `frontend-design` plugin, the local `tools`, `persona-switcher`, and `telegram` extensions, and standalone skills maintained here.
+`everest` is a local OMP marketplace containing first-party plugins together with bundled skills adapted from third-party projects — see [`ATTRIBUTION.md`](ATTRIBUTION.md). Its catalog contains the pinned Anthropic `frontend-design` plugin, the local `tools` and `persona-switcher` extensions, and standalone skills maintained here.
 
 ## Prerequisites and setup
 
@@ -30,17 +30,18 @@ Run `./bootstrap` whenever the catalog changes to ensure all declared plugins ar
 ├── plugins/
 │   ├── .gitkeep
 │   ├── tools/
-│   ├── persona-switcher/
-│   └── telegram/
+│   └── persona-switcher/
 ├── scripts/
 │   ├── bootstrap.sh
 │   └── validate.py
+├── everest/
+│   └── SKILL-QUALITY-REPORT.md
 └── skills/
     ├── .gitkeep
     └── <approved standalone skills>/
 ```
 
-`skills-dev/`, if added later, is repository-maintenance material and is not shipped. Plugin-bundled skills belong inside their plugin.
+`skills-dev/`, if added later, is repository-maintenance material and is not shipped. `everest/` holds local review reports and is not shipped either. Plugin-bundled skills belong inside their plugin.
 
 ## Included plugins
 
@@ -55,8 +56,6 @@ omp plugin install --scope project persona-switcher@everest
 `tools@everest` provides Codex usage, Beads, GitHub pull-request, PostgreSQL, and marketplace-update tools, plus a model-aware usage summary in the footer status line. On session start it offers to install shared team extension packages via `omp install`. See [`plugins/tools/README.md`](plugins/tools/README.md) for its prerequisites and connection configuration.
 
 `persona-switcher@everest` provides `/persona` for switching user-level OMP personality files from a saved library, plus the `persona_create` model tool and bundled `persona-generator` skill for generating new persona matrices. See [`plugins/persona-switcher/README.md`](plugins/persona-switcher/README.md) and its bundled `persona-switcher` skill.
-
-`telegram@everest` provides `/telegram` and a single-owner Telegram bridge with focused chat tools. Bootstrap installs it, but a new OMP process plus an explicit `/telegram setup` or `/telegram connect` is required before any network polling or state mutation begins. See [`plugins/telegram/README.md`](plugins/telegram/README.md).
 
 ## Consumer commands
 

@@ -6,13 +6,13 @@ This marketplace contains first-party plugins together with skills adapted from 
 
 - Source: https://github.com/cathrynlavery/diagram-design
 - License: MIT, © 2025 Cathryn Lavery. The bundled `LICENSE` file is retained in the skill directory.
-- Bundled copy: snapshot of the upstream skill. Local modifications: none recorded.
+- Bundled copy: snapshot of the upstream skill. Local modifications: dead vendored links and fictional example-asset references removed; duplicated style-guide and summary-card tables deduplicated into existing references; page-layout/card detail moved to `references/page-layout.md`.
 
 ## hallmark — `plugins/tools/skills/hallmark`
 
 - Source: https://github.com/nutlope/hallmark (https://www.usehallmark.com)
 - License: MIT, by Together AI. The `Powered by Together AI` line in the skill originates upstream and is retained.
-- Bundled copy: version 1.1.0 snapshot; upstream has since released a larger v2, so this copy may lag. Local modifications: the example street address in the component templates was replaced with a fictional placeholder.
+- Bundled copy: version 1.1.0 snapshot; upstream has since released a larger v2, so this copy may lag. Local modifications: the example street address in the component templates was replaced with a fictional placeholder; a later pass disclosed branch detail to `references/preflight.md` and `references/component-scope.md`, moved the `study` pipeline into `references/study.md`, removed dead `site/` and `docs/` vendored links, and compressed `SKILL.md`.
 
 ## tools plugin core — `plugins/tools`
 
@@ -27,10 +27,10 @@ This marketplace contains first-party plugins together with skills adapted from 
 
 ## Bundled skills with unestablished origin — `plugins/tools/skills`
 
-`beads`, `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `gh-stack`, `grill-with-docs`, `grilling`, `implement`, `improve-codebase-architecture`, `obsidian-vault-usage`, `pg-connect`, `pg-dev`, `pg-indexes`, `pg-locking`, `pg-queries`, `pg-transactions`, `pr-address-comments`, `pr-deep-review`, `presentation-builder`, `prototype`, `python-format`, `repo-security-review`, `research`, `resolving-merge-conflicts`, `setup-repo`, `slide-craft`, `tdd`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `wizard`, `worktree-parallel`, `write-a-skill`, `write-an-agent`, `writing-agents`, `writing-for-agents`, `writing-great-skills`.
+`beads`, `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `gh-stack`, `grilling`, `implement`, `improve-codebase-architecture`, `pg-connect`, `pg-dev`, `pg-indexes`, `pg-locking`, `pg-queries`, `pg-transactions`, `pr-address-comments`, `presentation-builder`, `prototype`, `python-format`, `repo-security-review`, `research`, `resolving-merge-conflicts`, `setup-repo`, `tdd`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `wizard`, `worktree-parallel`, `writing-agents`, `writing-for-agents`.
 
 These are maintained in this repository. Where any of them reproduces third-party text or assets, that origin is not established here and their redistribution basis is **unresolved**.
 
 ## First-party plugins
 
-`plugins/tools`, `plugins/persona-switcher`, and `plugins/telegram` (including their skills `persona-switcher` and `persona-generator`) are first-party to this repository. The catalog also pins the third-party Anthropic plugin `frontend-design` (`anthropics/claude-plugins-official`), which carries its own upstream license.
+`plugins/tools` and `plugins/persona-switcher` (the latter including its skills `persona-switcher` and `persona-generator`) are first-party to this repository. The catalog also pins the third-party Anthropic plugin `frontend-design` (`anthropics/claude-plugins-official`), which carries its own upstream license.

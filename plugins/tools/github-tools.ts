@@ -18,9 +18,19 @@ import { toolText } from "./tool-result.ts";
 async function runGh(pi: ExtensionAPI, args: string[]) {
 	return runCli(pi, "gh", args, {
 		keepEmpty: true,
-		notFound: "gh CLI not found — install with `brew install gh`.",
+		notFound: "gh CLI not found — provision it with mise (`mise install`) or check PATH.",
 		mappings: [{ pattern: /not logged into|not authenticated|auth login/i, message: "gh is not authenticated — run `gh auth login`." }],
 	});
+}
+
+/**
+ * PR reference → number. Accepts a bare number, `#123`, or a PR URL; only the
+ * trailing digit run counts, so digits elsewhere in a URL ("v3", "repo2")
+ * never leak into the number.
+ */
+export function parsePrNumber(reference: string): number {
+	const match = /(\d+)\/?$/.exec(reference.trim());
+	return match ? Number.parseInt(match[1] as string, 10) : Number.NaN;
 }
 
 /** Extract the Actions run id from a check-run `link`/`details_url`. */
@@ -83,7 +93,7 @@ export function registerGithubTools(pi: ExtensionAPI): void {
 			const repo = await runGh(pi, ["repo", "view", "--json", "owner,name"]);
 			if (!repo.ok) return toolText(repo.text, true);
 			const { owner, name } = JSON.parse(repo.text) as { owner: { login: string }; name: string };
-			const num = Number.parseInt(numberArg.replace(/\D/g, ""), 10);
+			const num = parsePrNumber(numberArg);
 			if (!Number.isFinite(num)) return toolText(`Invalid PR reference: ${numberArg}`, true);
 
 			// PR identity.

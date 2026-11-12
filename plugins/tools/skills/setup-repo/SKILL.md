@@ -1,48 +1,36 @@
 ---
 name: setup-repo
-description: Configure this repo for the engineering skills — initialize beads (bd) as the task manager and lay out domain docs. Run once before first use of the other engineering skills.
+description: One-time repo setup for the engineering skills — initialize beads as the task manager and lay out domain docs. Run once per repo, before the workflow skills that expect docs/agents/.
 disable-model-invocation: true
 ---
 
 # Setup Repo Skills
 
-Scaffold the per-repo configuration that the engineering skills assume. Straightforward by design: beads is the task manager, the state vocabulary is fixed, and domain docs default to single-context. Explore, confirm the issue prefix, write.
+Scaffold the per-repo configuration the engineering skills assume: beads is the task manager, the state vocabulary is fixed, and domain docs default to single-context. Explore, confirm the issue prefix, write.
 
-## Process
+## 1. Explore
 
-### 1. Explore
+- `bd --version` — CLI installed?
+- `.beads/` — already initialized? Read the prefix from `.beads/metadata.json` → `dolt_database`.
+- `AGENTS.md` / `CLAUDE.md` — which exists? Is there an `## Agent skills` section?
+- `CONTEXT.md`, `docs/adr/`, `docs/agents/` — prior output?
+- Monorepo signals — `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, populated `packages/*`. Absence means single-context.
 
-- `bd --version` — beads CLI installed?
-- `.beads/` at the repo root — already initialized? Note the prefix (`.beads/metadata.json` → `dolt_database`).
-- `AGENTS.md` and `CLAUDE.md` at the repo root — which exists? Is there already an `## Agent skills` section?
-- `CONTEXT.md` at the repo root, `docs/adr/`, `docs/agents/` — prior output already there?
-- Monorepo signals — `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, populated `packages/*`. Absence means single-context (almost every repo).
+## 2. Set up beads
 
-### 2. Set up beads
+1. CLI missing → stop and tell the user to provision `bd` through the repo's mise configuration (`mise install`); no ad-hoc package manager.
+2. Not initialized → derive a short lowercase prefix from the repo directory (`omp-marketplace` → `om`), confirm it in one line ("Prefix `om` → issue ids `om-42` — ok?"), then run `bd init --prefix <prefix>`. Different existing prefix → offer `bd rename-prefix`. Same prefix → skip.
+3. Write `docs/agents/issue-tracker.md` from [issue-tracker-beads.md](./issue-tracker-beads.md). That file is the single source for bd commands, dependency edges, state vocabulary, and transitions; other skills read it.
 
-1. **CLI missing** → `brew install beads`.
-2. **Not initialized** → derive the issue prefix from the repo directory name (short, lowercase, alphanumeric — `omp-marketplace` → `om`), confirm it with the user in one line ("Prefix `om` → issue ids `om-42` — ok?"), then run `bd init --prefix <prefix>`. Already initialized with a different prefix → offer `bd rename-prefix` instead. Same prefix → nothing to do.
-3. Write `docs/agents/issue-tracker.md` from [issue-tracker-beads.md](./issue-tracker-beads.md). It fixes the whole convention — bd commands, dependency edges, and the state vocabulary below — so every consumer skill reads the same rules.
+The one hard requirement: **agent-tackleable vs human-waiting is two labels on bd issues** — `ready-for-agent` / `ready-for-human`; everything else is native bd status.
 
-**State vocabulary (fixed, no choices):**
+## 3. Domain docs
 
-| State | beads representation |
-|-------|---------------------|
-| `needs-triage` | open issue with no triage label |
-| `needs-info` | status `deferred` (hidden from `bd ready` until the reporter replies) |
-| `ready-for-agent` | label `ready-for-agent` — agents grab these: `bd ready -l ready-for-agent` |
-| `ready-for-human` | label `ready-for-human` — HITL, waiting on a person |
-| `wontfix` | closed with a `wontfix` reason |
+Default to single-context: one `CONTEXT.md` plus `docs/adr/` at the repo root, and write `docs/agents/domain.md` from [domain.md](./domain.md). Only when exploration found monorepo signals, offer multi-context (root `CONTEXT-MAP.md` → per-context `CONTEXT.md`) and confirm the layout.
 
-This is the only requirement the skills have: **agent-tackleable vs human-waiting is two labels on bd issues**, everything else is native bd status.
+## 4. Agent docs block
 
-### 3. Domain docs
-
-Default to **single-context** — one `CONTEXT.md` + `docs/adr/` at the repo root; write `docs/agents/domain.md` from [domain.md](./domain.md) without asking. Only when exploration found monorepo signals, offer multi-context (root `CONTEXT-MAP.md` → per-context `CONTEXT.md`) and confirm the layout.
-
-### 4. Agent docs block
-
-Edit whichever of `CLAUDE.md` / `AGENTS.md` exists (if neither, ask which to create — don't pick). Update an existing `## Agent skills` block in-place; never duplicate it, never overwrite surrounding user edits:
+Edit whichever of `CLAUDE.md` / `AGENTS.md` exists; if neither, ask which to create. Update an existing `## Agent skills` block in place — never duplicate it, never overwrite surrounding user edits:
 
 ```markdown
 ## Agent skills
@@ -56,6 +44,6 @@ All task tracking goes through beads (`bd`); issue ids are `<prefix>-<n>`. See `
 [one-line summary — "single-context" or "multi-context"]. See `docs/agents/domain.md`.
 ```
 
-### 5. Done
+## 5. Done
 
-Report what was set up and which skills now read these files. `docs/agents/*.md` can be edited directly later; re-running this skill is only needed to start over.
+`bd init` succeeded (or the existing prefix was kept), `docs/agents/issue-tracker.md` and `docs/agents/domain.md` exist, and the agent docs block is present exactly once. Report what was created and which skills now read it. Re-running is only needed to start over; the written docs are edited directly afterward.

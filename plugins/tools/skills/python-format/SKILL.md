@@ -1,44 +1,45 @@
 ---
 name: python-format
-description: Configure Python formatting with ruff format (or black), enforce import order, line length, and drift-free style. Use when setting up formatting, fixing format check failures, or reviewing formatter drift.
+description: Set up or repair Python formatting with ruff format (or black), import order, and line length. Use for formatter setup, format-check failures, import-order drift, or line-length decisions. Not for general lint rules.
 ---
 
-# Python Formatting
+# Python formatting
 
-Standard for Python formatting. Loads when: setting up/drift check of formatter, import ordering, line-length decisions, fixing format failures.
+## Standard
 
-## Formatter
+- **One formatter:** `ruff format` (black-compatible) — or `black` already in the repo, never both.
+- **Import order:** ruff's `I` rules cover isort semantics; no separate `isort`/`reorder-python-imports` run.
+- **Line length:** one value for the repo, set in `pyproject.toml`; 100 is the default here. Never mix widths per directory.
 
-- **Primary:** `ruff format` — drop-in replacing `black`. One formatter per repo, never two.
-- **Import order:** `ruff` (`I` rule) handles isort semantics; no separate `isort`/`reorder-python-imports` run.
-- **Line length:** standard 100; match `pyproject.toml` `[tool.ruff]` only. Never leave 88/120 mismatched across repo files without a PR-wide announcement.
-
-## Standard config
-
-In `pyproject.toml`:
+## `pyproject.toml`
 
 ```toml
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = false
-
-[tool.ruff]
-line-length = 100
 ```
+
+`docstring-code-format = true` only when every Python snippet inside docstrings is already valid; otherwise the formatter rewrites examples.
 
 ## Working method
 
-1. Run `uv run ruff format .` (or repo's format wrapper). CI must check format before merge.
-2. `--check` in CI to fail drift, never `--diff` only — drift that CI tolerates becomes the new style.
-3. Never bundle formatter updates with behavior changes — separate commit/PR stylistically.
-4. Import order follows `ruff` (`isort`) semantics: stdlib → third-party → first-party. Case-sensitive ordering is default.
+1. Run the repo's format wrapper — `uv run ruff format .` when it uses uv.
+2. CI gates drift with `ruff format --check .`; `--diff` alone is a report and lets drift merge.
+3. Check imports with `ruff check --select I .` (or the same `ruff check` under the repo's selected rules).
+4. Keep formatting commits separate from behaviour changes.
 
-## Anti-patterns
+## Avoid
 
-- ❌ running `black` after `ruff format` — the two formats end up chasing each other's decisions.
-- ❌ formatter in a pre-commit that applies non-deterministic changes — commit the format run alongside code, don't run it unstaged.
-- ❌ changing line length per directory — one line length per repo.
-- ❌ docstring code-format enabled while docstrings contain non-Python snippets — keep `docstring-code-format = false` unless repo curates it.
+- Running `black` after `ruff format`: each reformats the other's decisions.
+- A pre-commit hook that reformats unrelated files; commit the format run with the code.
+- Per-directory line lengths, or an 88/120 split left unannounced.
+- `docstring-code-format = true` while docstrings hold non-Python examples.

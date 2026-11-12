@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: "Turn the current conversation into a spec and publish it to the project issue tracker — no interview, just synthesis of what you've already discussed."
+description: "Synthesize the current conversation and codebase understanding into a spec and publish it to the issue tracker — no interview, just what's already been discussed. Use for the spec itself; use `/to-tickets` to split a spec or plan into tracer-bullet tickets."
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,7 @@ The task manager conventions (beads) should have been provided to you in `docs/a
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below, then publish it to beads: `bd create "<title>" -t feature -d <spec-body> --json`. Apply the `ready-for-agent` label (`bd label add <id> ready-for-agent`) - no need for additional triage.
+3. Write the spec using the template below, then publish it to beads: `bd create "<title>" -t feature -d <spec-body> --json`. Apply the `ready-for-agent` label (`bd label add <id> ready-for-agent`) - no need for additional triage. Done when the issue exists and is labeled; report its id.
 
 <spec-template>
 

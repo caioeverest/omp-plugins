@@ -1,6 +1,6 @@
 ---
 name: pg-transactions
-description: PostgreSQL transactions — BEGIN/COMMIT/ROLLBACK, autocommit, savepoints, ACID guarantees, isolation levels, MVCC, two-phase commit, error handling upserts, idempotency, testing transactions. Use when writing transactional DML, handling errors/rollbacks, or reasoning about consistency and isolation.
+description: PostgreSQL transactions — one-call BEGIN/COMMIT/ROLLBACK via pg_exec, autocommit, savepoints, ACID, isolation levels, upsert/idempotency patterns, and retrying 40001. Use when writing transactional DML, handling rollback or error recovery, or reasoning about consistency and isolation. Not for lock-contention diagnosis (pg-locking) or query tuning (pg-queries).
 ---
 
 # PG Transactions
@@ -9,11 +9,13 @@ Transaction control, ACID, and patterns for safe writes.
 
 ## Tool usage
 
-- `pg_exec` — run `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`, DML, DDL.
-- `pg_query` — `SELECT current_setting('transaction_isolation')`, `pg_stat_activity` state.
-- `pg_locks` — see open transactions and their locks.
+- `pg_exec` — send the WHOLE transaction (`BEGIN; ...; COMMIT;`) in ONE call. Each call is a fresh `psql` process, so a transaction cannot span calls; `pg_exec` asks for write approval.
+- `pg_query` — one read-only statement: `SELECT current_setting('transaction_isolation')`, `pg_stat_activity` rows.
+- `pg_locks` — open transactions and their locks.
 
 ## Basic control
+
+Send the block as ONE `pg_exec` call:
 
 ```sql
 BEGIN;                              -- start transaction
@@ -25,22 +27,15 @@ COMMIT;
 
 ### Autocommit
 
-PG defaults to autocommit: each statement is its own transaction. `BEGIN` disables autocommit until `COMMIT` or `ROLLBACK`.
+PG defaults to autocommit: each statement is its own transaction. `BEGIN` disables it until `COMMIT` or `ROLLBACK`. Prefer the explicit `BEGIN ... COMMIT` above; never depend on `SET autocommit=off`-style driver flags unless you own the session.
 
-```sql
-BEGIN;           -- explicit
--- statements
-COMMIT;
-```
-
-Prefer explicit `BEGIN ... COMMIT`. Never depend on `SET autocommit=off`-style driver flags unless you own the session.
+Also: a single `pg_exec` string with several statements (`INSERT ...; INSERT ...;`) is executed by psql as ONE transaction even without `BEGIN`, so it commits or rolls back atomically. An explicit `BEGIN ... COMMIT` makes that intent readable.
 
 ## ACID
 
-- **Atomicity**: multi-statement tx is all-or-nothing. Crash mid-transaction → undo via WAL replay.
-- **Consistency**: constraints (PK, FK, UNIQUE, NOT NULL, CHECK) checked per-statement; a violation aborts the statement, not the whole tx.
-- **Isolation**: MVCC for snapshot reads; row locks for writers.
+- **Consistency**: constraints (PK, FK, UNIQUE, NOT NULL, CHECK) are checked per statement; a violation rolls back that statement, leaving the transaction open (aborted) — see Error handling.
 - **Durability**: `synchronous_commit=on` (default) waits for WAL flush. `off` gains throughput and loses the last few ms of commits on crash.
+- **Atomicity / Isolation**: multi-statement tx is all-or-nothing over WAL; MVCC snapshot reads, row locks for writers.
 
 ## Savepoints
 
@@ -73,13 +68,12 @@ READ UNCOMMITTED is accepted but treated as READ COMMITTED in PG.
 
 ```sql
 BEGIN;
-SELECT balance FROM accounts WHERE id = 1 FOR UPDATE;
 UPDATE accounts SET balance = balance - 10 WHERE id = 1;
 UPDATE accounts SET balance = balance + 10 WHERE id = 2;
 COMMIT;
 ```
 
-`FOR UPDATE` locks the row so the selector can't read a stale balance.
+For a read-then-write check, add `SELECT ... FOR UPDATE` to lock the row (see `skill://pg-locking`).
 
 ### Upsert (INSERT ... ON CONFLICT)
 
@@ -88,58 +82,41 @@ INSERT INTO counters (key, value) VALUES ('visits', 1)
 ON CONFLICT (key) DO UPDATE SET value = counters.value + 1;
 ```
 
-Atomic, no race between read-then-write. Needs the unique constraint/index on `key`. **Does NOT take a deadlock-prone gap lock** the way MySQL `ON DUPLICATE KEY UPDATE` sometimes does; safe under concurrency.
+Atomic, no race between read-then-write. Needs the unique constraint/index on `key`. No MySQL-style gap lock, but concurrent inserts of the same key can still race on the unique check — retry on `deadlock detected` or `40001`.
 
-### Batch insert in a transaction
+### Batch insert
 
-```sql
-BEGIN;
-INSERT INTO logs (msg) VALUES ('a'), ('b'), ('c');
-INSERT INTO logs (msg) VALUES ('d'), ('e'), ('f');
-COMMIT;
-```
-
-One batch in one tx beats autocommit per row by orders of magnitude. Don't make the tx too large — a million rows in one tx bloats WAL and holds locks. 1000-5000 per tx, or `COPY FROM STDIN` for bulk.
+Batch rows into one call instead of one statement per row — orders of magnitude fewer round-trips. Keep a block to ~1000–5000 rows (larger bloats WAL and holds locks), or use `COPY` for bulk.
 
 ## Error handling
 
-A statement error does **not** abort the transaction. Handle explicitly:
+Inside one `pg_exec` block, a statement error aborts the rest of the block; the transaction is left aborted (`25P02`) and the connection close rolls it back. So a failed block is a full rollback — not a partial one — unless you fence the risky statement with a savepoint (see Savepoints above) and `ROLLBACK TO SAVEPOINT` when it under-delivers.
 
-```sql
-BEGIN;
-UPDATE accounts SET balance = balance - 10 WHERE id = 1;
--- if this fails (FK violation, check constraint, etc.) the tx stays open
--- decide: continue with a different statement, or ROLLBACK
-ROLLBACK;
-```
+`pg_exec` returns psql's stderr, so read the error, fix the block, and resend the whole thing.
 
-In application code (the `pg_exec` tool runs one statement per call): check the result, issue `ROLLBACK` on error. Don't leave a transaction open.
-
-A serialization conflict in SERIALIZABLE (`40001 could not serialize access`) **aborts the whole tx**. Retry the entire `BEGIN ... COMMIT` block.
+A serialization conflict in SERIALIZABLE (`40001 could not serialize access`) aborts the whole transaction. Retry the entire `BEGIN ... COMMIT` block from the application.
 
 ## Idempotency
 
-Make transactions safe to retry:
+Make a transaction safe to retry by keying it on an idempotency value:
 
 ```sql
 INSERT INTO transfers (id, from_account, to_account, amount)
 VALUES ('tx-abc', 1, 2, 10)
 ON CONFLICT (id) DO NOTHING;
-RETURNING id;
 ```
 
-Second execution hits the conflict and does nothing. Pattern: application-level idempotency key as PK or unique constraint.
+A second execution hits the conflict and does nothing. The key is a PK or unique constraint; add `RETURNING` to learn whether a row was actually inserted.
 
 ## What breaks transactions
 
 - **DDL is transactional** (unlike MySQL) — `ALTER TABLE`, `CREATE INDEX`, `DROP TABLE` can appear inside `BEGIN ... COMMIT` and roll back together. This is a PG strength.
 - **`CREATE INDEX CONCURRENTLY` is NOT transactional** — must run outside `BEGIN`. It leaves an invalid index on failure.
-- **Connection close**: an open transaction rolls back when the connection drops (same as MySQL).
-- **`SAVEPOINT` survival**: savepoints survive DDL in PG (DDL is transactional), unlike MySQL.
+- **Connection close**: every `pg_exec` call closes its connection, so an open transaction rolls back between calls. Keep a transaction inside one call; only prepared transactions (2PC) outlive the connection.
 
 ## Two-phase commit (advanced)
 
-For distributed transactions — rarely needed:
+For distributed transactions — rarely needed. Requires `max_prepared_transactions > 0` on the server:
 
 ```sql
 BEGIN;
@@ -149,24 +126,25 @@ PREPARE TRANSACTION 'gid-abc';
 COMMIT PREPARED 'gid-abc';
 ```
 
-Avoid unless you drive a distributed consensus.
+A prepared transaction survives the connection closing, making this the one transaction form that legitimately spans `pg_exec` calls. Avoid unless you drive a distributed consensus.
 
 ## Testing transactions
+
+One `pg_exec` call, ending in `ROLLBACK`, leaves the database untouched:
 
 ```sql
 BEGIN;
 INSERT INTO users (email) VALUES ('test@example.com');
-SELECT count(*) FROM users WHERE email = 'test@example.com';  -- expect 1 via pg_query
 ROLLBACK;
 ```
 
-Self-cleaning, no fixture pollution. DROP the BEGIN/ROLLBACK and you've polluted the DB.
+Self-cleaning, no fixture pollution — the connection close rolls the block back even if a statement fails. Drop the `BEGIN`/`ROLLBACK` and you've polluted the DB.
 
 ## Pitfalls
 
-- **`FOR UPDATE` outside `BEGIN`**: statement locks then commits immediately. Losses the lock.
+- **`FOR UPDATE` with no `BEGIN`**: the statement locks the row, then the implicit commit releases it. Wrap it in `BEGIN ... COMMIT`.
 - **Long transactions pin WAL**: vacuum can't collect dead tuples newer than the oldest transaction's snapshot. Monitor `pg_stat_activity.backend_xmin`.
-- **Implicit COMMIT absent in PG**: `ALTER TABLE` is inside the transaction. Both a feature and a hazard — don't mix DDL and DML expecting isolation.
+- **No implicit COMMIT**: DDL joins the transaction, so a `CREATE`/`ALTER` in the block rolls back with the rest. Don't expect a partial commit from mixing DDL and DML.
 - **SERIALIZABLE can abort**: `40001` is a permanent-seeming error; retry the transaction pattern. Don't catch and suppress without retry.
 - **DDL + `CONCURRENTLY`**: `CREATE INDEX CONCURRENTLY` cannot run inside `BEGIN`. Build outside.
 - **`RETURNING` matters**: `INSERT ... ON CONFLICT DO NOTHING` in a retry returns zero rows; add `RETURNING` to know whether it actually inserted.

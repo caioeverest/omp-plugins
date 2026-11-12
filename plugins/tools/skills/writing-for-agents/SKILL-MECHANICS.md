@@ -1,6 +1,52 @@
 # Skill mechanics
 
-The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill — frontmatter, the invocation choice, and router skills. Everything else about writing it is the universal reference in `SKILL.md`.
+The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill — creating one, frontmatter, the invocation choice, and router skills. Everything else about writing it is the universal reference in `SKILL.md`.
+
+## Creating a skill
+
+**Where to save.** User-level `~/.omp/agent/skills/<skill-name>/SKILL.md` — always discovered, survives project changes. Project-local (`<repo>/skills/<skill-name>/SKILL.md`, or `plugins/<plugin>/skills/<skill-name>/SKILL.md` for a bundled skill) only when the skill is specific to one repo; confirm the project's discovery covers that path and say which you chose.
+
+**Process.**
+
+1. **Gather requirements** — the task and domain the skill covers, the use cases it must handle, whether it needs executable scripts or only instructions, and any reference material to fold in.
+2. **Draft** — `SKILL.md` with the frontmatter and shape below; push reference into sibling files as the body grows (see _When to split_ in `SKILL.md`).
+3. **Review with the user** — does it cover their cases? anything missing or unclear? should any section be more or less detailed?
+
+**Template.**
+
+```md
+---
+name: skill-name
+description: What the skill does. Use when [specific triggers].
+---
+
+# Skill name
+
+## Quick start
+
+[Minimal working example]
+
+## Workflows
+
+[Ordered steps, each ending on a checkable completion criterion]
+
+## Advanced features
+
+[Link out: see [REFERENCE.md](REFERENCE.md)]
+```
+
+**Description.** The description is the agent's only signal for choosing this skill, so it is the skill's context pointer: front-load the leading word, third person, first sentence what it does then "Use when [specific triggers]" (wording rules in `SKILL.md`; branch collapse included). A **user-invoked** skill keeps a human-facing one-line summary instead — see _Invocation_ below.
+
+**Ship scripts** when the operation is deterministic (validation, formatting), the same code would be regenerated each run, or errors need explicit handling: a script is cheaper and more reliable than generated code.
+
+**Review checklist.**
+
+- [ ] Description carries the trigger branches ("Use when …")
+- [ ] Body is lean — reference pushed to sibling files once it grows past ~100 lines
+- [ ] Steps end on checkable completion criteria
+- [ ] No time-sensitive statements
+- [ ] One term per concept; concrete examples included
+- [ ] Links resolve, and point one level deep
 
 ## Invocation
 

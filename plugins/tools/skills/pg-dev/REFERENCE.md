@@ -7,33 +7,31 @@ Per-database specifics that don't fit the SKILL flow. Go back to [SKILL.md](SKIL
 - `EXPLAIN` — server-side plan, no execution. Cheap, safe on any query, including DML you don't want to run.
 - `EXPLAIN ANALYZE` — runs the query (DML runs for real; use `BEGIN`...`ROLLBACK`). Adds `actual time`, `rows`, `loops`.
 - `EXPLAIN (ANALYZE, BUFFERS)` — plus buffer hits/reads. The default in the `pg_explain` tool when `analyze=true`.
-- `EXPLAIN (COSTS OFF)` — when the chosen cost numbers themselves are distracting; usually leave on, ADD `BUFFERS` when worried about I/O.
+- `EXPLAIN (COSTS OFF)` — drops the cost estimates when the numbers distract; keep `BUFFERS` on for I/O detail.
 - `EXPLAIN (FORMAT JSON)` — when piping to a visualizer (see "Visualizers" below).
 
-Access types in plan output:
-
-| type | meaning |
-|------|---------|
-| `Seq Scan` | full table scan — fine for < a few thousand rows, suspect otherwise |
-| `Index Scan` | index fetch + heap lookup |
-| `Index Only Scan` | covered columns live in the index — no heap hits |
-| `Bitmap Scan` | bulk index union — when selectivity is moderate |
-| `CTE Scan` / `Subquery Scan` | usually a WAL-free CTE or uncorrelated subquery |
+Plan node reading (Seq Scan vs Index Scan vs Index Only Scan, joins, spills) lives in `skill://pg-queries`; index choices in `skill://pg-indexes`.
 
 ## Common gotchas
 
-- `LIMIT` interacts badly with `ORDER BY` on non-sorted columns: the whole sort runs the rows. Add the ORDER BY column to the index if it's filtered.
+- `LIMIT` with `ORDER BY` on a non-sorted column still sorts every candidate row: add the ORDER BY column to the index that serves the filter.
 - `Seq Scan` on a small dimension table is fine; don't chase it.
-- `Row width spill` shows up when `ORDER BY`/`GROUP BY`/`JOIN` go over `work_mem`. Raise per session: `SET work_mem='64MB'`.
-- `ANALYZE` on plans will mislead when the table is `${volatility_threshold}` stale. Run `ANALYZE table_name` first before trusting `rows`.
-- `JIT` overhead: complex aggregates/JOINs can blow 100+ ms on JIT compilation when `enable_jit=on`. For a single short query — disable per query: `SET jit=off`.
+- Row-width spill appears when `ORDER BY`/`GROUP BY`/`JOIN` exceed `work_mem`. Raise per session: `SET work_mem='64MB'`.
+- `EXPLAIN` row estimates mislead when the table has churned since the last stats refresh. Run `ANALYZE table_name` before trusting `rows`.
+- JIT compilation can add 100+ ms to a single short query. Disable per session: `SET jit=off`.
 
 ## pg_stat_statements
 
-Preloaded in the official image. Query the aggregate of all executed statements ranked by total time:
+Not preloaded in the official image. Enable it once:
+
+```yaml
+command: -c shared_preload_libraries=pg_stat_statements
+```
+
+then `CREATE EXTENSION IF NOT EXISTS pg_stat_statements;` in the database. Query the aggregate of all executed statements ranked by total time:
 
 ```sql
-SELECT query,.calls, total_time, mean_time, rows
+SELECT query, calls, total_time, mean_time, rows
 FROM pg_stat_statements
 ORDER BY total_time DESC
 LIMIT 20;
@@ -43,10 +41,7 @@ Reset when you want a clean read: `SELECT pg_stat_statements_reset()`. The `pg_s
 
 ## pg_locks vocabulary
 
-- `locktype` — `relation`, `virtual`, `transactionid`, `tuple`, `page`, `object`, `userlock`, `advisory`.
-- `mode` — `AccessShareLock`, `RowShareLock`, `RowExclusiveLock`, `ShareUpdateExclusiveLock`, `ExclusiveLock`, `AccessExclusiveLock`. From least to most intrusive; DDL like `ALTER TABLE` takes `AccessExclusiveLock` and blocks `SELECT`.
-- `granted` — `false` = blocked, `true` = acquired.
-- `virtual` — transaction id lock, common when writing.
+`locktype`, `mode` ordering, and `granted` semantics live in `skill://pg-locking`. The `pg_locks` tool returns both `pg_stat_activity` wait state and the blocked→blocking pair graph.
 
 ## pg_stat_activity wait_event_type
 
@@ -74,14 +69,14 @@ Paste `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` output into:
 | `shared_buffers` | 128MB | 25-40% RAM on dedicated box |
 | `work_mem` | 4MB | sort/hash spills on EXPLAIN |
 | `effective_cache_size` | 4GB | let planner assume RAM is free |
-| `random_page_cost` | 4 (cmr) | tune down to ~1.1 for SSD |
+| `random_page_cost` | 4 (spinning disk) | tune down to ~1.1 for SSD |
 
 ## pg_stat_io (PG16+)
 
 Per-backend per-object IO breakdown. On PG16 the `pg_stats` tool returns `pg_stat_database` counters — add a one-liner via `pg_query` for `pg_stat_io` when diagnosing noisy neighbors.
 
-## Extensions worth caching
+## Extensions worth enabling
 
-- `pg_stat_statements` — always.
+- `pg_stat_statements` — when you profile (see above).
 - `uuid-ossp` / `pgcrypto` — for `uuid` and digest functions.
 - `postgis`, `pg_trgm`, `btree_gist` when the schema calls for it.

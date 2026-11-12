@@ -1,82 +1,85 @@
 ---
 name: worktree-parallel
-description: Run parallel subagents safely by giving each an isolated git worktree, then merge their patches or commits back to the original branch. Use when dispatching multiple agents that edit the same repo, when parallel edits conflict, or when the user mentions worktrees, isolated agents, or parallel subagent changes.
+description: Run multiple writing subagents safely by isolating each in its own checkout, then apply or merge their patches to the original branch. Use when dispatching parallel agents that edit the same repo or when parallel edits collide. Read-only agents need no isolation.
 ---
 
-# Parallel Subagents with Git Worktrees
+# Parallel subagents with isolated workspaces
 
-Multiple subagents editing the same working tree conflict: overlapping file edits collide, and one agent's `git add -A` sweeps up another's changes. The fix: run each writer in its own git worktree (a separate checkout of the same repo), collect its changes, and merge them back to the original branch one at a time. Conflicts between agents are resolved sequentially by you, never inside a parallel agent.
+Two writers in the same working tree collide: overlapping edits fight, and one agent's `git add -A` sweeps up another's changes. Run each writer in an isolated checkout, then bring its work back one agent at a time.
 
 ## When to isolate
 
-- **Isolate** when two or more agents will write/edit files in the same repo concurrently.
-- **No isolation** for read-only agents (scout/research) or agents editing disjoint repos.
-- When in doubt, isolate — the cost is one extra checkout per agent.
+- **Isolate** when two or more agents will write in the same repo concurrently, even on disjoint files — index locks and whole-tree commands still collide.
+- **Skip** for read-only scouts or agents editing separate repos.
+- Dependencies stay serial: if B needs A's output, apply A before spawning B.
 
-## Two ways to spawn an isolated agent
+## Dispatch an isolated writer
 
-**1. `agent(..., { isolated: true })` — inline worktree.** The agent works in a fresh worktree off the current branch and you merge its result back yourself. The result names the worktree path; find the worktree branch with `git worktree list` (or `git -C <worktree-path> branch --show-current`). Requires isolation mode enabled (`task.isolation.mode` — if you get "isolated execution requires task.isolation.mode to be set", it isn't).
+The documented route is the eval `agent()` helper with `isolated: true`. It requires isolation enabled in settings — `task.isolation.enabled: true` (the legacy `task.isolation.mode` setting migrates to that plus `isolation.backend`) — and is unavailable in plan mode. `isolation.backend` picks the mechanism: a git worktree, an overlay, or another copy-on-write checkout.
 
 ```js
-const a = agent("Refactor auth per local://plan.md", { isolated: true, handle: true });
-const b = agent("Add billing logs per local://plan.md", { isolated: true, handle: true });
+const a = await agent("Refactor auth per local://plan.md", { isolated: true, label: "AuthRefactor" });
+const b = await agent("Add billing logs per local://plan.md", { isolated: true, label: "BillingLogs" });
 ```
 
-**2. `task` batch — worktree per item.** A `tasks: [...]` batch runs each item in its own worktree automatically when the batch edits files. Same merge-back rules apply; each settled job names its worktree/branch.
+Python uses keyword arguments (`agent(prompt, isolated=True, label="AuthRefactor")`); without `await`, the call returns the handle. `apply: false` keeps changes as artifacts instead of applying them; `merge: false` forces patch mode; otherwise `task.isolation.merge` decides.
 
-Either way, a read-only scout can run un-isolated alongside the writers.
+**`task` batches do not isolate.** The batch schema exposed in a session may omit isolation entirely, so don't assume a per-item flag. Dispatch writers through `agent(..., { isolated: true })`; a read-only `scout` can run alongside in a normal task batch.
 
-## Collect changes: patch or commit
-
-An isolated agent may leave the worktree **dirty** (uncommitted edits) or **committed** (one or more commits on its worktree branch). Handle both.
-
-### A. Dirty worktree → patch
+**Fallback when eval isolation is unavailable.** Prefer sequential dispatch: run writers one after another in the main checkout, settling each before starting the next. If writers must run concurrently, create one checkout per writer and require every child to use absolute paths inside its assigned checkout:
 
 ```bash
-git -C <worktree-path> diff HEAD > /tmp/agent.patch
-git apply /tmp/agent.patch        # on the original branch
+git worktree add ../repo-agent-a -b agent/a
+git worktree add ../repo-agent-b -b agent/b
 ```
 
-### B. Committed worktree → merge or cherry-pick
+A task child keeps the session's cwd, so relative paths and `git` commands land in the original checkout. Give each writer its absolute checkout path, keep git operations with the orchestrator, and apply the collection and cleanup rules below.
 
-The agent committed to a worktree branch. Bring those commits onto the original branch:
+## What comes back
+
+Each settled isolated result reports its workspace and changes: branch, base SHA, patch paths, and any nested patches. The workspace path is discoverable with `git worktree list` (worktree backend) or from the result. The child does not inherit the conversation, so its task must be complete and self-contained.
+
+## Bring the work back
+
+With `apply: false`, an isolated agent leaves its work as artifacts — the checkout dirty or committed on its branch.
+
+**Applied automatically (merge mode)** — review the result, then verify the merge actually landed before starting the next agent.
+
+**Patch mode** — apply the captured patch from the original branch:
 
 ```bash
-WT=<worktree-path>
-BR=$(git -C "$WT" branch --show-current)
-# from the original branch, merge the worktree branch
+git apply "<patch-path>"
+```
+
+**Committed worktree** — merge the task branch as a unit, or replay selected commits:
+
+```bash
+BR=$(git -C "<worktree-path>" branch --show-current)
 git merge --no-ff "$BR"
-# or replay just its commits:
-git cherry-pick <oldest-sha>^..<newest-sha>
+git cherry-pick <oldest-sha>^..<newest-sha>   # selected commits only
 ```
 
-Prefer **merge** when the worktree branch should land as a unit (keeps history). Prefer **cherry-pick** when you only want some commits or a linear history.
+Apply one agent at a time. If B conflicts with A's already-applied work, resolve it now — you hold both diffs locally.
 
-### Apply one agent at a time
-
-Apply/merge sequentially. If agent B's changes conflict with agent A's already-merged patch, resolve now — you hold both diffs locally. Then clean up:
+Clean up after each agent:
 
 ```bash
-git worktree remove <worktree-path> --force
-git branch -D <worktree-branch>     # if a branch was created
+git worktree remove "<worktree-path>" --force
+git branch -D "$BR"          # when a branch was created
 ```
-
-Repeat per agent. Keep merge order explicit; never let two agents merge the original branch themselves.
 
 ## Rules
 
-- **You own the original branch.** Subagents report patches or worktree commits; the orchestrator applies them. A subagent must never push, merge, or commit to the shared/original branch.
-- **Isolate every writer.** Even two writers on disjoint file sets — index locks and shared-tree sweeps still collide.
-- **Skim before applying.** A worktree edit can still be wrong; read the diff before `git apply` / `git merge`.
-- **Remove worktrees when done.** Stale worktrees pin branches and leak disk. Audit with `git worktree list`.
-- **Dependencies stay serial.** If agent B needs A's output, sequence them, or apply A's patch before spawning B.
+- **You own the original branch.** Subagents report patches or task branches; the orchestrator applies or merges them. A subagent never pushes or commits to the shared branch.
+- **Skim before applying.** Read the patch or diff; a clean apply is not a correct change.
+- **Do not let two agents merge.** Serial application keeps conflicts resolvable.
+- **Remove checkouts when done.** Stale worktrees pin branches and leak disk; audit with `git worktree list`.
 
-## Fallback: agents already conflicted in the main tree
+## Recovery: writers already collided
 
-If un-isolated writers already collided, don't patch on top. Quarantine and re-run isolated:
+Do not patch on top. Quarantine, then re-dispatch isolated:
 
 ```bash
-git stash                  # quarantine the collision
-git worktree list          # confirm no stray worktrees
-# re-dispatch with isolated: true on disjoint slices
+git stash
+git worktree list
 ```

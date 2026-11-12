@@ -507,3 +507,29 @@ Same post-emission behaviour as the default verb's lock-the-system flow (per [`d
 - If the user only wanted the diagnosis and is satisfied: stop. The diagnosis report is a complete deliverable on its own.
 
 Do not chain verbs or emit files without the user's explicit go-ahead. The diagnosis is the contract; the build and the file are separate decisions.
+
+---
+
+## Build stamp after `study`
+
+When a build follows a `study` diagnosis, the macrostructure stamp must carry a `studied: yes` flag, the theme picked, and the source mode.
+
+Image mode:
+
+```css
+/* Hallmark · macrostructure: Marquee Hero · H1 hero knobs: size=xxl, alignment=left-bias
+ * theme: Studio · accent: forest-green ~3% · studied: yes · DNA-source: image (user reference)
+ */
+```
+
+URL mode — additionally records the URL and any exact-fonts / exact-colours that informed the build:
+
+```css
+/* Hallmark · macrostructure: Marquee Hero · H1 hero knobs: size=xxl, alignment=left-bias
+ * theme: Studio · accent: forest-green ~3% · studied: yes · DNA-source: url
+ * source-url: https://example.com/  ·  observed-fonts: Inter Tight + Inter
+ * observed-accent: oklch(58% 0.16 35)  ·  rhythm: unknown (URL mode)
+ */
+```
+
+The stamp signals to future Hallmark runs that this page's structure was extracted, not invented. A `studied: yes` page is audited *more* leniently for "Specimen fall-through" (the user explicitly chose this DNA) but *more* strictly for "did you actually use the extracted DNA, or did you drift back to defaults?"

@@ -21,10 +21,19 @@ ok()  { echo "ok: $*"; }
 frontmatter=$(awk 'NR==1 && $0=="---" {fm=1; next} fm && $0=="---" {exit} fm {print}' "$file")
 [ -n "$frontmatter" ] || { err "no YAML frontmatter block found in $file"; echo; exit 1; }
 
-get_field() { printf '%s\n' "$frontmatter" | sed -n "s/^$1:[[:space:]]*//p" | head -1 | sed 's/^["'"'"']//; s/["'"'"']$//'; }
+get_field() {
+  local key="$1"
+  awk -v k="$key" '
+    index($0, k ":") == 1 {
+      sub("^" k ":[ \t]*", "")
+      gsub(/^["\047]|["\047]$/, "")
+      print; exit
+    }
+  '
+}
 
-name=$(get_field name)
-desc=$(get_field description)
+name=$(get_field name <<<"$frontmatter")
+desc=$(get_field description <<<"$frontmatter")
 
 [ -n "$name" ] || err "frontmatter missing required field: name"
 [ -n "$desc" ] || err "frontmatter missing required field: description"
@@ -52,7 +61,7 @@ scan_dir() {
   for f in "$dir"/*.md; do
     [ -e "$f" ] || continue
     [ "$f" = "$file" ] && continue
-    other=$(printf '%s\n' "$(awk 'NR==1 && $0=="---" {fm=1; next} fm && $0=="---" {exit} fm {print}' "$f")" | get_field name)
+    other=$(get_field name <<<"$(awk 'NR==1 && $0=="---" {fm=1; next} fm && $0=="---" {exit} fm {print}' "$f")")
     if [ "$other" = "$name" ]; then
       echo "WARN: name '$name' also defined in $label: $f (first-wins by discovery order)"
     fi

@@ -1,12 +1,42 @@
 ---
 name: writing-agents
-description: Reference for writing omp sub-agent definitions — the `name`/`description`/`systemPrompt` frontmatter contract, the description as a dispatch pointer, model and output-schema levers, and source precedence. Use when creating, editing, reviewing, or debugging an agent file in `.omp/agents/` or `~/.omp/agent/agents/`, or when a spawn fails to find an agent.
-disable-model-invocation: true
+description: Write and review omp sub-agent definitions — the name/description frontmatter contract, the description as a dispatch pointer, model and output-schema levers, discovery precedence, and the create process. Use when creating, editing, reviewing, or debugging an agent file in .omp/agents/ or ~/.omp/agent/agents/, or when a spawn fails to find an agent. Distinct from AGENTS.md guidance, which lives in writing-for-agents.
 ---
 
 # Writing Agents
 
-An agent definition is a document an agent consumes; everything in `writing-for-agents` (context pointers, information hierarchy, leading words, pruning) applies in full. What changes here is the mechanics: an agent file has two loads, two readers, and a dispatch boundary.
+An agent definition is a document an agent consumes; everything in `writing-for-agents` (context pointers, information hierarchy, leading words, pruning) applies in full. What changes here is the mechanics: an agent file has two loads, two readers, and a dispatch boundary. This skill covers **agent definition files** (`.omp/agents/<name>.md`); the repo's `AGENTS.md` is a different document, covered by `writing-for-agents`.
+
+## Creating an agent
+
+**Where to save.** User-level `~/.omp/agent/agents/<name>.md` — always discovered, survives project changes. Project-level `<repo>/.omp/agents/<name>.md` only when the agent is specific to one repo; say which you chose and why.
+
+**Process.**
+
+1. **Gather requirements** — the task the agent owns end-to-end; the slice no bundled agent (`scout`, `reviewer`, `task`, `sonic`) already covers; read-only or writing, and the `tools` that implies; prose or structured `output`; model inherited or pinned; whether it dispatches children (`spawns`).
+2. **Check for collisions** — first-wins by exact name (see _Discovery and precedence_): a new file shadows same-named agents below it, including bundled ones.
+3. **Draft** — one markdown file: frontmatter (`name`, `description` required) plus the body as the child's system prompt (see _Format_).
+4. **Review with the user** — does the description match when they'd reach for it? is the body's completion criterion checkable from the yielded output alone? anything per-run that belongs in `task`/`context` baked into the body, or vice versa?
+
+**Draft template.**
+
+```md
+---
+name: agent-name
+description: One sentence on what it does. Use when [specific triggers].
+tools: read, grep, glob        # omit for full default set
+model: "@role"                 # omit to inherit the parent's model
+output:                        # omit for prose output
+  type: object
+  properties:
+    summary: { type: string }
+---
+
+[The child's system prompt: role, ordered steps, pitfalls, and a final
+completion criterion the parent can check from the yielded output alone.]
+```
+
+**Verify.** Run the static smoke check — `scripts/smoke-agent.sh <path-to-agent.md>` (frontmatter parses, required fields present, body non-empty, name collisions across project/user/bundled agents reported). Then dispatch it once on a real task drawn from the description's triggers; a good definition fires on the intended prompt and yields output matching the body's completion criterion without steering.
 
 The two loads are the **description** (permanent context load in every parent session that can spawn agents, read by the parent model deciding _whether_ to dispatch) and the **body** (the child's system prompt, read only by the spawned child, deciding _how_ to work). The two readers are the parent and the child; the dispatch boundary separates them. Every field decision follows from which reader a piece of text serves.
 

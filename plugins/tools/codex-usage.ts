@@ -90,6 +90,17 @@ function addTotals(target: CodexTokenTotals, usage: Record<string, unknown>): vo
 	target.turns += 1;
 }
 
+/** Per-turn token delta: second total minus first, clamped at zero per field. */
+function subtractTotals(total: Record<string, unknown>, previous: Record<string, unknown> | undefined): Record<string, number> {
+	const out: Record<string, number> = {};
+	for (const key of ["input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens"]) {
+		const current = finiteNumber(total[key]) ?? 0;
+		const prior = previous ? finiteNumber(previous[key]) ?? 0 : 0;
+		out[key] = Math.max(0, current - prior);
+	}
+	return out;
+}
+
 function collectSessionFiles(root: string, files: string[]): void {
 	let entries;
 	try {
@@ -119,6 +130,7 @@ function parseSessionFile(
 	const turns = new Map<string, { timestamp: number; usage: Record<string, unknown> }>();
 	let currentTurn = "session";
 	let latestRateLimits: CodexRateLimits | undefined;
+	let previousTotal: Record<string, unknown> | undefined;
 	for (const line of lines) {
 		let record: unknown;
 		try {
@@ -135,7 +147,14 @@ function parseSessionFile(
 		const rateLimits = parseRateLimits(payload.rate_limits, new Date(timestamp).toISOString());
 		if (rateLimits) latestRateLimits = rateLimits;
 		const totalUsage = isRecord(payload.info.total_token_usage) ? payload.info.total_token_usage : undefined;
-		if (totalUsage) turns.set(currentTurn, { timestamp, usage: totalUsage });
+		const lastUsage = isRecord(payload.info.last_token_usage) ? payload.info.last_token_usage : undefined;
+		// `total_token_usage` is cumulative for the session, so a turn must carry
+		// only its own delta — `last_token_usage` when present, otherwise the
+		// growth since the previous event. Summing the cumulative values
+		// double-counts every earlier turn.
+		const turnUsage = lastUsage ?? (totalUsage ? subtractTotals(totalUsage, previousTotal) : undefined);
+		if (turnUsage) turns.set(currentTurn, { timestamp, usage: turnUsage });
+		if (totalUsage) previousTotal = totalUsage;
 	}
 
 	for (const turn of turns.values()) {

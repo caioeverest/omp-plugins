@@ -67,7 +67,7 @@ gh stack view
 
 ## Submit and review
 
-After all local checks pass, confirm before `gh stack submit`. Use interactive submit. Write distinct title/body: what, why, validation, dependency context. Mark incomplete/noisy layers draft. Do not use `--auto` unless user accepts generated metadata.
+After all local checks pass, confirm before `gh stack submit`. Use the interactive editor to write distinct title/body (what, why, validation, dependency context) and toggle noisy or incomplete layers to draft. `--auto` skips the editor, uses generated titles, and creates drafts unless `--open` is passed; use it only with the user's agreement.
 
 Review bottom-up. Address feedback in owning layer, rerun relevant tests. Use `gh stack view` to verify ordering/base branches.
 
@@ -75,7 +75,7 @@ Review bottom-up. Address feedback in owning layer, rerun relevant tests. Use `g
 
 Before significant edits or after remote/trunk changes, preflight then confirm before `gh stack sync`.
 
-`sync` fetches, rebases, pushes, and syncs PR state. On conflict: resolve, stage, ask before `gh stack rebase --continue`; use `--abort` only after user approves rollback. On true divergence, stop; consider unstack + re-init only with approval.
+`sync` fetches, cascade-rebases, pushes with `--force-with-lease`, and syncs PR state. If a rebase conflict appears, `sync` restores the branches and leaves conflict resolution to `gh stack rebase`; run it interactively, then use `--continue` or, with user approval, `--abort`. Local/remote stack divergence prompts in a terminal and aborts non-interactively — stop and ask. Consider unstack plus re-init only with approval.
 
 Use `gh stack modify` for reorder/insert/fold/rename; require clean tree + confirmation. Run `gh stack submit` after restructuring remote stack.
 
@@ -83,7 +83,7 @@ Use `gh stack modify` for reorder/insert/fold/rename; require clean tree + confi
 
 Only after every intended PR is open, non-draft, approved, green, and stack view is correct:
 
-1. Tell user exact stack/PRs ready, unresolved risks, and merge-queue behavior if present.
+1. Tell user exact stack/PRs ready, unresolved risks, and merge-queue behavior if present. Stack merge is atomic: every layer up to the chosen PR lands together or none do; only open/not-draft state is pre-checked, and GitHub evaluates branch protection during the merge.
 2. Tell user to run `gh stack merge` interactively, or use GitHub stack UI, to choose target layer and confirm.
 3. Do not execute landing command. After human lands it, run preflight/sync if user asks cleanup.
 

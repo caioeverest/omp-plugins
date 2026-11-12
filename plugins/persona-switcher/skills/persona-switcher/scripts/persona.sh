@@ -61,6 +61,7 @@ list_personas() {
         [ -e "$file" ] || continue
         name=${file##*/}
         name=${name%.md}
+        is_slug "$name" || continue
         if [ "$name" = "$active" ]; then
             printf '  * %s\n' "$name"
         else
@@ -94,7 +95,14 @@ activate() {
 
 deactivate() {
     current=$(active_name)
-    [ "$current" != none ] || fail "no persona-switcher persona is active"
+    if [ "$current" = none ]; then
+        if [ -e "$BACKUP" ] && [ ! -e "$SLOT" ]; then
+            mv "$BACKUP" "$SLOT"
+            printf 'Restored %s from a leftover backup.\n' "$SLOT"
+            return 0
+        fi
+        fail "no persona-switcher persona is active"
+    fi
     rm "$SLOT"
     if [ -e "$BACKUP" ]; then
         mv "$BACKUP" "$SLOT"
@@ -107,6 +115,7 @@ deactivate() {
 show_persona() {
     slug=${1:-}
     is_slug "$slug" || fail "invalid slug"
+    [ -f "$LIBRARY/$slug.md" ] || fail "persona not found: $slug"
     cat "$LIBRARY/$slug.md"
 }
 

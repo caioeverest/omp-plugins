@@ -61,9 +61,18 @@ export function activatePersona(agentDir: string, slug: string): void {
 
 export function deactivatePersona(agentDir: string): boolean {
 	const active = activePersonaName(agentDir);
-	if (active === undefined) return false;
 	const slot = slotPath(agentDir);
 	const backup = join(agentDir, "PERSONALITY.md.persona-switcher-backup");
+	if (active === undefined) {
+		// A leftover backup with no slot left to restore into is the one stranded
+		// state "off" can still resolve safely; a slot that merely lost its marker
+		// is left alone so a hand-edited file is never overwritten.
+		if (existsSync(backup) && !existsSync(slot)) {
+			renameSync(backup, slot);
+			return true;
+		}
+		return false;
+	}
 	rmSync(slot);
 	if (existsSync(backup)) renameSync(backup, slot);
 	return true;

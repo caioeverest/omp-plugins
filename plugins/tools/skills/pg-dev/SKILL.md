@@ -1,6 +1,6 @@
 ---
 name: pg-dev
-description: PostgreSQL local development with Docker — run, connect, persistence, init scripts, Mac filesystem perf, ARM/x86 images, networking, and honest production-parity limits. Use when setting up local Postgres, connecting from app or CLI, or hitting Docker Postgres limitations.
+description: Run a local PostgreSQL for development in Docker — container start, persistence volumes, init scripts, macOS volume performance, and honest production-parity limits. Use when standing up, seeding, or debugging a local/Docker Postgres, or hitting Docker Postgres limitations. Not for configuring the pg_* connection (pg-connect) or tuning queries (pg-queries).
 ---
 
 # PG Dev (Docker Local)
@@ -24,13 +24,11 @@ Connect from host:
 psql "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=app"
 ```
 
-Or via the `pg_query` tool — set the connection via `/pg-connect` first (writes `.omp/agent/pg.json` at the repo root), or use `PGUSER=postgres PGPASSWORD=postgres PGDATABASE=app PGHOST=127.0.0.1` env vars as a fallback.
+Or via the `pg_*` tools — run `/pg-connect` first (see Connection resolution below).
 
 ## Connection resolution
 
-1. `.omp/agent/pg.json` (run `/pg-connect` to write it).
-2. `PGUSER` / `PGPASS` / `PGHOST` / `PGPORT` / `PGDATABASE` env vars.
-3. Defaults: `127.0.0.1:5432`, no default DB.
+Run `/pg-connect` to write `.omp/agent/pg.json` (that skill owns the precedence and credential handling). For CI, the tools also read `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE`; defaults are `127.0.0.1:5432` with no default database.
 
 See [REFERENCE.md](REFERENCE.md) for engine idiosyncrasies — EXPLAIN ANALYZE, `pg_stat_statements`, lock views, and the small knobs that pay off.
 
@@ -64,7 +62,7 @@ docker run -d --name postgres \
 
 - **No production identity**: local `postgres` superuser + open ports. Never bake real data into images.
 - **No slow query log persistence** unless you mount `/var/lib/postgresql/data/log` (and set `log_filename`, `log_destination`).
-- **`pg_stat_statements`** is loaded by default in the official image; disable with `shared_preload_libraries` override only if you must. See REFERENCE.md.
+- **`pg_stat_statements`** is NOT preloaded in the official image — add `command: -c shared_preload_libraries=pg_stat_statements` and `CREATE EXTENSION pg_stat_statements` when you need it. See REFERENCE.md.
 - **Charset**: default `utf8` + `en_US.utf8`. Explicit `--lc-collate=C` only if your app relies on binary collation.
 - **Connection limits**: default `max_connections=100`. Integration tests spawning parallel connections may need to raise it via command: `command: -c max_connections=400`.
 
@@ -79,15 +77,4 @@ docker exec -i postgres psql -U postgres app < dump.sql
 
 ## Compose
 
-```yaml
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: [pg-data:/var/lib/postgresql/data]
-volumes:
-  pg-data:
-```
+Same service in YAML: `image: postgres:16`, `POSTGRES_PASSWORD`/`POSTGRES_DB`, `ports: ["127.0.0.1:5432:5432"]`, `volumes: [pg-data:/var/lib/postgresql/data]`, and a matching top-level `volumes: pg-data`.

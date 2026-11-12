@@ -1,14 +1,50 @@
 ---
 name: resolving-merge-conflicts
-description: "Use when you need to resolve an in-progress git merge/rebase conflict."
+description: "Resolve an in-progress git merge or rebase conflict. Use when a merge/rebase has conflicts or conflict markers, or the merge needs finishing."
 ---
 
-1. **See the current state** of the merge/rebase. Check git history, and the conflicting files.
+# Resolve Merge Conflicts
 
-2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages, check the PRs, check original issues/tickets.
+Work on the merge or rebase already in progress. Stay read-only until resolution: do not abort, reset, or start a different merge.
 
-3. **Resolve each hunk.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Always resolve; never `--abort`.
+## 1. Read the state
 
-4. Discover the project's **automated checks** and run them — typically typecheck, then tests, then format. Fix anything the merge broke.
+```bash
+git status
+git log --merge --oneline
+git diff --name-only --diff-filter=U
+```
 
-5. **Finish the merge/rebase.** Stage everything and commit. If rebasing, continue the rebase process until all commits are rebased.
+Identify merge vs rebase and every conflicted file. If no merge or rebase is in progress, stop and say so.
+
+## 2. Find both primary sources
+
+For each conflict, read the commits that produced each side (`git log --merge -p -- <file>`), the merge base, commit messages, and the linked PR or issue. State each side's intent before editing. Guessing at intent is how a merge silently drops work.
+
+## 3. Resolve each hunk
+
+Preserve both intents where they compose. Where they are incompatible, choose the side matching the merge's stated goal and record the trade-off in the merge commit. Do not invent behavior, add unrelated changes, or clean up surrounding code.
+
+- Unambiguous intent → resolve.
+- Ambiguous or genuinely incompatible intent → ask the user before choosing.
+- Binary, generated, or lock files → regenerate with the repo's tool or take the correct side; never hand-merge them.
+
+## 4. Verify
+
+- No conflict markers remain: `git diff --check`, and search the resolved files for `^(<<<<<<<|=======|>>>>>>>)`.
+- Run the project's checks in its documented order — typically typecheck, tests, then format. Fix breakage caused by the merge; report pre-existing failures instead of hiding them.
+- Re-read each resolved region: no duplicated imports, lost hunks, or half-applied changes.
+
+## 5. Finish
+
+Stage the resolved files, then complete the operation:
+
+```bash
+git add <resolved-paths>
+git commit                 # merge
+git rebase --continue      # rebase; repeat for each remaining commit
+```
+
+Done when `git status` shows no merge or rebase in progress, every conflict is resolved, and the project's checks pass.
+
+Abort only when the user asks or the merge was started in error; confirm first and explain what will be lost. Never force-push.

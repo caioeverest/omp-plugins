@@ -186,9 +186,13 @@ export function formatUsageReport(openrouter: OpenRouterUsage | undefined, local
 	if (openrouter) {
 		lines.push("## OpenRouter key", "");
 		const label = openrouter.label ? ` (${openrouter.label})` : "";
+		const pct =
+			openrouter.limitUsd !== undefined && openrouter.limitUsd > 0
+				? ` (${((openrouter.spentUsd / openrouter.limitUsd) * 100).toFixed(1)}% used)`
+				: "";
 		lines.push(
 			openrouter.limitUsd !== undefined
-				? `Spend: ${formatUsd(openrouter.spentUsd)} of ${formatUsd(openrouter.limitUsd)} limit (${((openrouter.spentUsd / openrouter.limitUsd) * 100).toFixed(1)}% used)`
+				? `Spend: ${formatUsd(openrouter.spentUsd)} of ${formatUsd(openrouter.limitUsd)} limit${pct}`
 				: `Spend: ${formatUsd(openrouter.spentUsd)} (no credit limit set)`,
 		);
 		if (openrouter.freeTier) lines.push("Free tier key.");

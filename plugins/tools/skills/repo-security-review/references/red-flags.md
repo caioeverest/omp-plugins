@@ -176,30 +176,18 @@ Comprehensive pattern list for local repo security audit.
 - Writing to `/usr/`, `/bin/`, `/sbin/` without root context
 - Downloading binaries to global paths
 
-## Quick Grep Cheatsheet
+## Quick Search Cheatsheet
 
-```bash
-# Outbound URLs
-grep -rEn 'https?://[^\s"'"'"']+' --include='*.{js,ts,py,sh,go,rs,rb,json}' .
+Run these as regexes with the `grep` tool, scoped to the repository (or the relevant source directory). Inspect matches; never execute them.
 
-# Hardcoded IPs
-grep -rEn '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' --include='*.{js,ts,py,sh,go,rs,rb}' .
+- **Outbound URLs** — `https?://[^\s"']+`
+- **Hardcoded IPs** — `\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`
+- **Sensitive file reads** — `(\.ssh|\.aws|credentials|\.netrc|\.npmrc|\.kube|\.docker/config)`
+- **Eval/exec** — `\b(eval|exec|Function)\s*\(`
+- **Base64 decode** — `(atob|btoa|b64decode|Buffer\.from\([^,]+,\s*["']base64)`
+- **Env access** — `process\.env|os\.environ|os\.getenv`
+- **Install hooks** — `"(pre|post)install"`
+- **Analytics/telemetry** — `(analytics|telemetry|tracking|mixpanel|amplitude|segment)`
+- **Shell download-exec** — `(curl|wget)[^\n|]*\|\s*(ba)?sh`
 
-# Sensitive file reads
-grep -rEn '(\.ssh|\.aws|credentials|\.netrc|\.npmrc|\.kube)' .
-
-# Eval/exec
-grep -rEn '\beval\s*\(|\bexec\s*\(|\bFunction\s*\(' --include='*.{js,ts,py,rb}' .
-
-# Base64 decode
-grep -rEn '(atob|btoa|base64\.b64decode|Buffer.from\([^,]+,\s*['"'"']base64['"'"'])' .
-
-# Env harvesting
-grep -rEn 'process\.env|os\.environ' --include='*.{js,ts,py}' .
-
-# Postinstall hooks
-grep -rEn '"postinstall"|"preinstall"' package.json
-
-# Analytics
-grep -rEn '(analytics|telemetry|tracking|mixpanel|amplitude|segment)' .
-```
+For `.gitignore`d or hidden paths, disable gitignore filtering rather than falling back to shell pipelines.

@@ -1,6 +1,6 @@
 ---
 name: pg-connect
-description: Configure Postgres connection for pg_* tools — ask the user for host/port/user/password/database, test the connection, and persist to .omp/agent/pg.json at the repo root (or cwd when not a git repo). Use when pg_query/pg_exec/pg_explain report missing connection, or when the user wants to switch to a different Postgres server.
+description: Configure the Postgres connection used by the pg_* tools — ask the user for host/port/user/password/database, verify reachability, and persist to .omp/agent/pg.json at the repo root (or cwd outside a git repo). Use when pg_query/pg_exec/pg_explain report `missing Postgres user`, or the user wants to switch servers. Not for standing up a local server (pg-dev) or tuning queries (pg-queries).
 ---
 
 # PG Connect
@@ -9,14 +9,14 @@ Prompt the user for connection details, verify reachability, persist to the proj
 
 ## Flow
 
-1. **Ask** via the `ask` tool. Suggested defaults in dropdown where obvious.
-2. **Test** the connection by running `pg_query` with `SELECT 1`. If the env has no config yet, temporarily put the values into env for the test call.
+1. **Ask** via the `ask` tool — one HTML `<form>` whose controls are named for the fields below; preselect with `value`/`selected`, mark `user` `required`.
+2. **Test** with a direct `psql` call (see below). The pg_* tools read their connection from `.omp/agent/pg.json` or the agent process env at call time, so `export` in a bash call does not reach them.
 3. **Persist** to `.omp/agent/pg.json` at the repo root (`git rev-parse --show-toplevel`), else cwd.
-4. **Confirm** the user sees a toast listing the fields (plaintext — this JSON is NOT encrypted) and the resolved path.
+4. **Confirm** with `pg_query` (`SELECT 1`), then tell the user the fields written (plaintext — this JSON is NOT encrypted) and the resolved path.
 
 ## Questions
 
-Ask one batched `ask` with these. Prefill from `.omp/agent/pg.json` if present, else env, else defaults:
+Ask one `ask` form with these named controls. Prefill from `.omp/agent/pg.json` if present, else env, else defaults:
 
 - `host` — default `127.0.0.1`. Accept hostname or IP.
 - `port` — default `5432`.
@@ -27,23 +27,12 @@ Ask one batched `ask` with these. Prefill from `.omp/agent/pg.json` if present, 
 ## Test before write
 
 ```bash
-# Set env for the test, run a trivial read
+# Trivial read with the candidate values, before anything is persisted
 PGHOST=127.0.0.1 PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres \
   psql --no-psqlrc --no-align -c "SELECT 1" postgres
 ```
 
-Or use the `pg_query` tool once the env is set in the current shell:
-
-```bash
-export PGHOST=127.0.0.1
-export PGPORT=5432
-export PGUSER=postgres
-export PGPASSWORD=postgres
-export PGDATABASE=postgres
-# then call pg_query SELECT 1 — verify ok
-```
-
-If the test fails, ask whether to (a) retry with different values, (b) fall back to defaults, or (c) leave env vars set and skip writing the file.
+After writing, re-check through `pg_query` (`SELECT current_database(), current_user`). On failure ask whether to (a) retry with new values, (b) use defaults, or (c) skip the file and rely on `PG*` env vars / `~/.pgpass`.
 
 ## Write
 
@@ -71,7 +60,7 @@ Omit keys that are empty (e.g. `password` when the user relies on `.pgpass`) —
 
 ## Credential handling
 
-Prefer a mechanism that keeps the password out of the project: export `PG*` variables for the session, or use `~/.pgpass` (mode `0600`, outside the repository). Say so and skip the file write when that is what the user wants.
+Prefer a mechanism that keeps the password out of the project: `PG*` variables in the environment OMP starts with (works for CI; a shell `export` mid-session does not reach the tools), or `~/.pgpass` (mode `0600`, outside the repository). Say so and skip the file write when that is what the user wants.
 
 If the user chooses `.omp/agent/pg.json`, all of the following apply:
 
@@ -82,8 +71,7 @@ If the user chooses `.omp/agent/pg.json`, all of the following apply:
 
 ## Post-write
 
-- Tell the user which path was written and which pg_* tools will now pick it up.
-- Suggest `SELECT current_database(), current_user` via `pg_query` as a sanity read.
+- Name the pg_* tools that now pick the file up (`pg_query`, `pg_exec`, `pg_explain`, `pg_table_info`, `pg_locks`, `pg_stats`).
 
 ## Pitfalls
 

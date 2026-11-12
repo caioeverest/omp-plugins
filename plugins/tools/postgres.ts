@@ -3,7 +3,7 @@
  *
  * Tools shell out to the `psql` CLI via `pi.exec` — no native driver, no
  * connection pooling inside the plugin, no deps added. `psql` ships with
- * Postgres itself (and `brew install libpq`), handles auth/SSL via standard
+ * Postgres itself (as does the libpq package), handles auth/SSL via standard
  * env/pgpass, and keeps the plugin surface tiny.
  *
  * Connection config resolution order:
@@ -26,20 +26,28 @@ export interface PgConfig {
 	socket: string | null;
 }
 
+/** Config-file field as a string; numeric/boolean scalars coerce, containers are a config error. */
+function stringField(value: unknown, field: string): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value === "string") return value;
+	if (typeof value === "number" || typeof value === "boolean") return String(value);
+	throw new Error(`.omp/agent/pg.json: "${field}" must be a string`);
+}
+
 /** Read Postgres connection config: `.omp/agent/pg.json` first, env fallback. Throws if no user is found. */
 export function readPgConfig(env: NodeJS.ProcessEnv = process.env): PgConfig {
 	const file = readDbConfigFile("pg");
-	const user = file.user ?? env.PGUSER ?? "";
+	const user = stringField(file.user, "user") ?? env.PGUSER ?? "";
 	if (!user) {
 		throw new Error("missing Postgres user — run /pg-connect to write .omp/agent/pg.json, or set PGUSER");
 	}
 	return {
-		host: file.host ?? env.PGHOST ?? "127.0.0.1",
+		host: stringField(file.host, "host") ?? env.PGHOST ?? "127.0.0.1",
 		port: parsePort(file.port ?? env.PGPORT, 5432),
 		user,
-		password: file.password ?? env.PGPASSWORD ?? "",
-		database: file.database ?? env.PGDATABASE ?? "",
-		socket: file.socket ?? null,
+		password: stringField(file.password, "password") ?? env.PGPASSWORD ?? "",
+		database: stringField(file.database, "database") ?? env.PGDATABASE ?? "",
+		socket: stringField(file.socket, "socket") ?? null,
 	};
 }
 

@@ -1,6 +1,6 @@
 ---
 name: pg-queries
-description: Writing, reading, and optimizing PostgreSQL queries — SELECT patterns, joins, subqueries vs CTEs, aggregation, EXPLAIN reading, Seq Scan vs Index Scan detection, covering indexes (INCLUDE). Use when writing SELECT queries, reading EXPLAIN output, or diagnosing slow queries.
+description: Write, read, and optimize PostgreSQL SELECT queries — joins, subqueries vs CTEs, aggregation, window functions, EXPLAIN plan reading, and the classic index-defeating patterns. Use when writing SELECTs, reading EXPLAIN output, or diagnosing a slow query. Not for index design (pg-indexes) or lock waits (pg-locking).
 ---
 
 # PG Queries
@@ -9,23 +9,15 @@ Writing good SELECT queries and reading EXPLAIN to find why they're slow.
 
 ## Tool usage
 
-- `pg_query` — run read-only SELECT/TABLE/WITH. Write statements rejected.
-- `pg_explain` — EXPLAIN or EXPLAIN ANALYZE a SELECT. `analyze: true` runs with `BUFFERS`.
+- `pg_query` — one read-only statement: a plain `SELECT` or `TABLE`. Rejects `WITH`/CTE, `SELECT INTO`, multi-statement input, and any write (use `pg_exec`).
+- `pg_explain` — prepends `EXPLAIN` (or `EXPLAIN (ANALYZE, BUFFERS)` with `analyze: true`) to a plain `SELECT`; `WITH` is rejected, so run a CTE plan as a full `EXPLAIN ...` through `pg_exec`.
 - `pg_table_info` — column list + index definitions.
 
 ## Query patterns
 
 ### Prefer explicit column lists
 
-```sql
--- Good
-SELECT id, email, created_at FROM users WHERE active;
-
--- Bad — schema drift + forces heap lookups past the index
-SELECT * FROM users WHERE active;
-```
-
-`SELECT *` also defeats `Index Only Scan`s. List what you need; every extra column forces the planner to hit the heap.
+Avoid `SELECT *`: it forces heap lookups and defeats `Index Only Scan`s. List the columns you need; every extra column makes the planner hit the heap.
 
 ### JOIN: drive from the smallest table
 
@@ -42,10 +34,10 @@ Index: `orders(status, created_at)` — composite, equality first. `users.id` is
 
 ### Subquery vs CTE vs JOIN
 
-PG 12+ materializes a CTE (`WITH`) by default; `< 12` folded it for a single use, 12+ lets you control it explicitly:
+PG 12+ inlines a non-recursive `WITH` referenced once; recursive or multiply-referenced CTEs still materialize. `MATERIALIZED` forces a single execution:
 
 ```sql
--- CTE — materialize explicitly to force one exec
+-- CTE — MATERIALIZED forces one execution, reused by the join
 WITH recent_orders AS MATERIALIZED (
   SELECT user_id, COUNT(*) AS cnt
   FROM orders
@@ -55,34 +47,19 @@ WITH recent_orders AS MATERIALIZED (
 SELECT u.email, r.cnt
 FROM users u JOIN recent_orders r ON r.user_id = u.id
 WHERE r.cnt > 5;
-
--- Equivalent JOIN — the planner sees it as one unit
-SELECT u.email, COUNT(o.id) AS cnt
-FROM users u
-JOIN orders o ON o.user_id = u.id
-WHERE o.created_at >= '2026-01-01'
-GROUP BY u.id
-HAVING COUNT(o.id) > 5;
 ```
 
-`MATERIALIZED` is useful when the CTE is expensive and referenced twice; otherwise let the planner inline.
+`MATERIALIZED` pays when the CTE is expensive and referenced twice; otherwise let the planner inline it. A plain JOIN over the same tables gives the planner one unit to optimize.
 
 ### Aggregation and GROUP BY
 
-- `ONLY_FULL_GROUP_BY` behavior is built in — non-aggregated columns must appear in GROUP BY. No toggle.
-- `GROUP BY` sorts; on PG 16+ there's `enable_incremental_sort`. If the planner still picks `Sort`, add the ORDER BY columns to the index.
-- `COUNT(DISTINCT)` — pre-aggregate on a summary table when it matters.
+- PG has no `ONLY_FULL_GROUP_BY` toggle: non-aggregated columns must appear in GROUP BY.
+- `GROUP BY` sorts; on PG 16+ `enable_incremental_sort` can help. If the planner still picks `Sort`, add the ORDER BY columns to the index.
+- Pre-aggregate `COUNT(DISTINCT)` into a summary table when it counts for performance.
 
 ### Window functions
 
-```sql
-SELECT
-  user_id, amount,
-  ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY amount DESC) AS rn
-FROM orders;
-```
-
-Window functions avoid self-joins for ranks, lag/lead, running totals. Faster than correlated subqueries.
+Window functions (ranks, lag/lead, running totals) avoid self-joins and beat correlated subqueries.
 
 ## Reading EXPLAIN
 
@@ -131,4 +108,4 @@ Look for `rows: 1000` but actual `rows: 3` — stale statistics. Run `ANALYZE ta
 - **`ILIKE` / regex**: skips btree. Use `citext` or `LOWER(col) = LOWER(?)` with a functional index.
 - **OFFSET pagination**: `LIMIT 20 OFFSET 10000` still reads 10020 rows. Keyset paginate: `WHERE id > $1 ORDER BY id LIMIT 20`.
 - **OR across tables**: often forces scan union. Rewrite as `UNION ALL`.
-- **CASE in WHERE**: breaks SARGability. Move CASE inside an indexable form, or filter in `WITH`.
+- **CASE in WHERE**: breaks SARGability. Rewrite as an indexable form, or pre-filter in a subquery.
