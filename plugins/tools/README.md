@@ -8,6 +8,7 @@ General-purpose OMP extension for Beads, GitHub, PostgreSQL, and model-aware usa
 - GitHub: `look_for_prs`, `get_pr_details`.
 - Marketplace: `update_marketplace` refreshes one marketplace's catalog (`omp plugin marketplace update`) and upgrades every plugin installed from it (`omp plugin upgrade <plugin>@<marketplace>` per plugin), reporting per-plugin results.
 - PostgreSQL: `pg_query`, `pg_exec`, `pg_explain`, `pg_table_info`, `pg_locks`, `pg_stats`.
+- Agents: `principle-software-engineer` — a disciplined implementation agent (think first, simplicity, surgical diffs, goal-driven verification).
 
 Write tools request OMP write approval. Destructive Beads operations require an explicit `confirm: true` argument.
 
