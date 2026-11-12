@@ -32,12 +32,23 @@ Break the work into **tracer bullet** tickets.
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first
+- **Right-size each ticket** — the smallest unit that carries its own test cycle and is worth a reviewer's gate. Fold setup, config, and scaffolding into the ticket that needs them. Split only where a reviewer could reject one ticket while approving its neighbour.
+- **Give each ticket its interfaces** — what it consumes and what it produces, with the exact names and signatures. An implementer sees only their own ticket, so nothing else can supply them.
+- **Each step a ticket names is one action with a checkable result** (write the failing test / run it, watch it fail / implement / run the tests / commit), and a verification step names both the command and the output that means it passed.
+- **Pin the values once, at the top** — the spec's constraints, constants, and signatures verbatim, so every ticket inherits the same ones.
 
 </vertical-slice-rules>
 
 Give each ticket its **blocking edges** — the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
+
+Self-check the breakdown before presenting it — yourself, not with a subagent:
+
+- Every requirement in the spec is covered by exactly one ticket.
+- Interfaces agree across tickets: nothing consumes a name that no ticket produces.
+- No decision-free lines: no `TBD`, no "handle edge cases", no type whose definition lives in nobody's ticket.
+- Proportion: a breakdown several times longer than the spec has become a transcript of your thinking — cut it back.
 
 ### 4. Quiz the user
 
@@ -80,10 +91,23 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Files
+
+- The files this ticket creates or modifies, and what each is for.
+
+## Interfaces
+
+- **Consumes**: the names and signatures this ticket relies on from other tickets.
+- **Produces**: the names and signatures other tickets may rely on.
+
+## Review focus
+
+- The input classes or failure modes most likely to bite this ticket, each with the test that covers it.
+
 ## Blocked by
 
 - A reference to each blocking ticket, or "None — can start immediately".
 
 </issue-template>
 
-In the ticket body, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+In the ticket body, keep line numbers and code snippets out — they go stale fast. File paths and interface names are the deliberate exception: an implementer sees only their own ticket, so the files it touches and the signatures it must match have to be in it. Exception to the exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.

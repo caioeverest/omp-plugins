@@ -30,6 +30,16 @@ No PR for the branch: ask the user for a PR number or `OWNER/REPO` and stop. Res
 gh repo view --json owner,name,nameWithOwner --jq '.owner.login,.name,.nameWithOwner'
 ```
 
+## Stance
+
+Verify before agreeing, and agree before implementing. A review comment is a claim about your code, not a verdict: read it fully, restate it, check it against the current code, then decide whether it is right for *this* codebase before touching anything.
+
+- **No performative agreement** — no "you're absolutely right", no "good catch", no thanks. State the fix, or make it and show the code.
+- **No blind compliance either.** Push back with evidence when a suggestion breaks behavior, misreads context, contradicts a documented standard or an earlier decision, or asks for generality nobody needs — `grep` for real usage before "implementing it properly".
+- **Any comment you do not fully understand halts the batch**: implement nothing, ask, then proceed. Two comments may share one cause, and a half-understood one gets implemented wrongly.
+- **External reviewers may lack context.** Before rejecting a finding, ask whether it is right here, whether it breaks existing behavior, and why the code looks as it does.
+- **When your pushback was wrong**, correct it in one factual line ("you were right — I checked X; it does Y") and move on. No apology loop, no defending.
+
 ## Process
 
 ### 0. Read check status, and loop until green
@@ -153,5 +163,6 @@ Loop steps 0–4 until both hold. Report the check status, comments fixed vs reb
 - **A failing check is also a comment:** read its log, fix the cause, push, re-poll.
 - **Verify before acting.** Re-read the current file before fixing or rebutting.
 - **Batch independent fixes; serialize ones that interact.**
+- **Order the batch: clarify everything first, then blocking items, then simple, then complex** — testing each as you go, keeping the tree green.
 - **Never force-push, rewrite history, or edit someone else's comment.**
 - **A re-run that hides a real bug is a second bug.**

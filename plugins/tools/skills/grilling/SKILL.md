@@ -7,6 +7,22 @@ Interview the user relentlessly until you reach a shared understanding. Map this
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled — the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round, then wait for the answers before the next round.
 
+## Ask only what changes the build
+
+Ask a question only when the answer changes what gets built and neither the request nor the project already answers it. Everything else — where a file goes, how something is written up, what order to work in — is your call: state it as a proposal they can correct and keep moving. A default they never heard is one they could not reject.
+
+Never reopen what is already decided, and never ask what the repo, the spec, or the conversation already answers.
+
+**Provenance.** In anything written from the interview, only what they actually said goes in as theirs; what you filled in goes in as your proposal, with your reason.
+
+## Size the work
+
+Name the size before the interview runs long: a small change needs a short design, an effort needs a real one. When it outgrows the round of questions it was sized for, stop and say so rather than interviewing your way through it. Several independent efforts → agree an order and grill them one at a time.
+
+## The gate
+
+Nothing gets built until the design is approved: no product code, no scaffolding, no dependencies, no implementation skill. Reading, exploring, and a labeled throwaway prototype are fine — keeping what a prototype produced is a new request that comes back through the gate. "Sounds good" to the idea is not approval of a design nobody has written down yet.
+
 ## Ask a round with one form
 
 The `ask` tool takes a single HTML `<form>` and returns the user's answers; the user fills the whole round in one pass and submits. Put every frontier question in that one form.

@@ -1,13 +1,13 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
+description: Shared vocabulary for designing deep modules. Use when designing or improving a module's interface, deciding where a seam goes, making code more testable or AI-navigable, or when another skill needs the deep-module vocabulary. Not for scanning a whole codebase for candidates — that is improve-codebase-architecture.
 ---
 
 # Codebase Design
 
 Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. Use this language and these principles wherever code is being designed or restructured. The aim is leverage for callers, locality for maintainers, and testability for everyone.
 
-This is the shared reference (`/tdd` and `/improve-codebase-architecture` draw on it) — consult it, don't run it as a session. To scan a whole codebase and report deepening candidates, use the `/improve-codebase-architecture` command.
+This is the shared reference (`/tdd` and `/improve-codebase-architecture` draw on it) — consult it, don't run it as a session. To scan a whole codebase and report deepening candidates, use the `/improve-codebase-architecture` skill.
 
 ## Glossary
 

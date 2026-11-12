@@ -10,6 +10,16 @@ Review the diff between `HEAD` and a fixed point, or the pull request for the cu
 
 PR mode is adversarial: assume the PR has problems and try to find them. Both modes are read-only reviews — never commit, push, post a comment, approve, or request changes unless the user explicitly asks.
 
+## When to review
+
+Review after each task in delegated work, after a major feature, and before merging or opening a PR. It is also the right move when you are stuck, before a refactor, and after an unusually tangled bug fix. Skipping it because the change looks simple is how the simple change broke something.
+
+## What the reviewer needs
+
+Hand the reviewer a bundle, never your session history: what the change is for, the requirements or spec it answers, and the exact range — `BASE_SHA..HEAD_SHA`, from `git rev-parse`, computed before the work started. A reviewer given no intent reviews style; a reviewer given your reasoning inherits your blind spots.
+
+Dispatch it as a separate `reviewer` subagent: self-reviewing inline burns the context you need to keep driving, and it is not a review. The reviewer is read-only — no edits, no commits, no index or branch changes, and no dispatching its own subagents. It files what it cannot check instead of guessing, lists every behavior it declined to judge before the verdict, and treats silence in the spec as **not** permission: grade by what a reasonable user of the change would expect.
+
 ## Process
 
 ### 1. Pin the target
@@ -79,6 +89,14 @@ Default to the conversation. Before any PR-facing action, ask which output the u
 Finish with what was reviewed: target commit range, axes run, and checks executed.
 
 Done when every selected axis has a report, every finding cites evidence and a severity, and the user has chosen where the review goes.
+
+## Act on the result
+
+- **Blocker** — fix before anything else moves.
+- **Major** — fix before the work proceeds.
+- **Minor** — record it; do not open a fix loop for it.
+
+Regression risk introduced by a fix is itself a finding. A review whose findings are all Minor still means the change is not reviewed until someone has read them.
 
 ## Why the axes stay separate
 

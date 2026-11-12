@@ -1,7 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Scan a codebase for deepening opportunities, present them as a visual report, then work through the candidate you pick.
-disable-model-invocation: true
+description: Scan a repository or subsystem for deepening opportunities — shallow modules, misplaced seams, weak locality — and report them as ranked, visual candidates. Use when asked to audit or improve a codebase's architecture, find refactoring candidates, or explain why an area is hard to test or navigate. Not the deep-module vocabulary used to judge them (codebase-design) or a review of a diff (code-review).
 ---
 
 # Improve Codebase Architecture

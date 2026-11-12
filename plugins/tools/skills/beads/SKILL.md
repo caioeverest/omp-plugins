@@ -52,7 +52,7 @@ Append `--json` for structured output; `bd show <id> --long` adds metadata. Stat
 
 | Error | Fix |
 | --- | --- |
-| `database not found` | Run `/setup-repo`, or ask the user to `bd init <prefix>` in the project root. |
+| `database not found` | Ask the user to run `/setup-repo`, or `bd init <prefix>` in the project root. |
 | `not in a git repository` | `git init`, or use `BEADS_DIR` + `--stealth`. |
 | `disk I/O error (522)` | Move `.beads/` off a cloud-synced filesystem. |
 | Status updates lag | Start server mode: `bd dolt start`. |

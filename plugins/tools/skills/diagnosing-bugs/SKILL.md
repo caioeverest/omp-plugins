@@ -15,6 +15,12 @@ This skill has you show commands, outputs and captured artifacts. **Redact every
 
 If the redacted output is not enough to diagnose the bug, say so and ask the user.
 
+## Before the loop
+
+Read the error completely — stack trace, line numbers, codes, the exact words. It usually names the answer, and skipping past it is how a guess replaces a fact. Then check what changed most recently: `git log`, `git diff`, new dependencies, config and environment differences.
+
+When a symptom reappears after everyone "already looked at this", the last fix probably landed on the symptom. Trace **backward** from where the error surfaced along the value that arrived there, to the call that produced it, and keep going until you reach the origin. Where the error appears is almost never where it should be fixed. A working example of the same thing elsewhere in the codebase is a fine comparison — read it completely rather than skimming, and list every difference, however small.
+
 ## Phase 1 — Build a feedback loop
 
 **This is the skill.** Everything else is mechanical. If you have a **tight** pass/fail signal for the bug — one that goes red on _this_ bug — you will find the cause; bisection, hypothesis-testing, and instrumentation all just consume it. If you don't have one, no amount of staring at code will save you.
@@ -109,6 +115,12 @@ Tool preference:
 
 **Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
 
+## Circuit breaker
+
+Each failed fix should have falsified something. When two fixes in a row fail, stop fixing and return to investigation with what you just learned — "one more variation" is the moment the loop became guessing.
+
+Three failed fixes is not a hypothesis problem, it is an **architecture** problem: the coupling, shared state, or missing seam that keeps manufacturing new symptoms. Stop and discuss the design before fix number four.
+
 ## Phase 5 — Fix + regression test
 
 Write the regression test **before the fix** — but only if there is a **correct seam** for it.
@@ -124,6 +136,22 @@ If a correct seam exists:
 3. Apply the fix.
 4. Watch it pass.
 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
+
+## Root cause, not symptom
+
+Fix where the bad value was born, not where it surfaced. If you cannot name a root cause, the investigation is incomplete — say so plainly rather than presenting handling as a diagnosis. When the failure must be handled anyway (retry, timeout, surfaced error), name the unknown cause and add the monitoring that will catch it next time.
+
+Then ask whether one check is enough. If invalid data caused the bug, other paths, refactors, or mocks can each bypass a single check. **Defense in depth** validates at every layer the data passes through: the entry boundary (reject what is invalid), the business logic (the invariant that matters), and the environment guard (the context-specific danger). It is added on top of the root-cause fix, never instead of it — validation that hides an unfixed cause is a second bug waiting to happen.
+
+## Waiting on conditions, never on time
+
+Never sleep or poll on elapsed time to wait for something to happen. Arbitrary delays race: they pass on your machine and fail under load or in CI.
+
+```ts
+await waitFor(() => isReady(), { timeout: 5000 });
+```
+
+Poll a short interval (~10ms) inside a timeout that fails loudly, and read the value inside the loop so the condition sees fresh state rather than a cached read. A fixed delay is right only for real timing behavior — a debounce, a throttle, a rate window — and then it waits for the triggering condition first, is based on the documented interval, and carries a comment saying why.
 
 ## Phase 6 — Cleanup
 

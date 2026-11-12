@@ -7,6 +7,14 @@ description: Run multiple writing subagents safely by isolating each in its own 
 
 Two writers in the same working tree collide: overlapping edits fight, and one agent's `git add -A` sweeps up another's changes. Run each writer in an isolated checkout, then bring its work back one agent at a time.
 
+## Detect isolation first
+
+Check before creating anything: when `GIT_DIR` differs from `git rev-parse --git-common-dir`, you are already inside a linked worktree — use it. A submodule (`git rev-parse --show-superproject-working-tree` returns a path) is treated as a normal repo.
+
+Ask before creating a worktree in someone's repo. Then verify the directory is gitignored (`git check-ignore <dir>`) before the first `git worktree add` — an unignored project-local directory puts an entire second checkout into the next commit. Directory precedence: what the user named, then an existing `.worktrees/`, then `worktrees/`, then a fresh `.worktrees/`.
+
+Run the tests once in the fresh checkout before handing it to a writer. A red baseline makes every later failure ambiguous, and saying so costs less than diagnosing it twice.
+
 ## When to isolate
 
 - **Isolate** when two or more agents will write in the same repo concurrently, even on disjoint files — index locks and whole-tree commands still collide.
@@ -61,12 +69,15 @@ git cherry-pick <oldest-sha>^..<newest-sha>   # selected commits only
 
 Apply one agent at a time. If B conflicts with A's already-applied work, resolve it now — you hold both diffs locally.
 
-Clean up after each agent:
+Clean up after each agent — remove from outside the worktree, then delete the branch:
 
 ```bash
-git worktree remove "<worktree-path>" --force
+git worktree remove "<worktree-path>"
 git branch -D "$BR"          # when a branch was created
+git worktree prune
 ```
+
+Remove only checkouts this work created, and never `--force`: when removal is refused because untracked files are present, show them and ask. `--force` is how someone else's uncommitted work disappears.
 
 ## Rules
 
