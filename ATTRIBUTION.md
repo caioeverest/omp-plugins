@@ -14,6 +14,12 @@ This marketplace contains first-party plugins together with skills adapted from 
 - License: MIT, by Together AI. The `Powered by Together AI` line in the skill originates upstream and is retained.
 - Bundled copy: version 1.1.0 snapshot; upstream has since released a larger v2, so this copy may lag. Local modifications: the example street address in the component templates was replaced with a fictional placeholder; a later pass disclosed branch detail to `references/preflight.md` and `references/component-scope.md`, moved the `study` pipeline into `references/study.md`, removed dead `site/` and `docs/` vendored links, and compressed `SKILL.md`.
 
+## superpowers skills — `plugins/tools/skills`
+
+- Source: https://github.com/obra/superpowers (evaluated at v7.0.2, commit 22f0b46)
+- License: MIT, © 2025 Jesse Vincent.
+- Adapted copy: rules re-derived and rewritten for OMP, not a vendored snapshot. `verifying-your-work` and `delegated-implementation` are new skills built on the completion-evidence and subagent-review discipline of its `verification-before-completion` and `subagent-driven-development`; `writing-for-agents/BULLETPROOFING.md` and `writing-for-agents/TESTING-SKILLS.md` draw on its `writing-skills` branch. Rules folded into `code-review`, `pr-address-comments`, `diagnosing-bugs`, `tdd`, `implement`, `to-tickets`, `grilling`, and `worktree-parallel` come from the same source.
+
 ## tools plugin core — `plugins/tools`
 
 - Parts of `usage.ts` are modeled on a third-party "fbr" base plugin named in the source comments.

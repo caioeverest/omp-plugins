@@ -1,6 +1,6 @@
 {
   "name": "omp-tools",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "description": "General-purpose Beads, GitHub, PostgreSQL, and model-aware usage tools for OMP.",
   "type": "module",
   "omp": {
